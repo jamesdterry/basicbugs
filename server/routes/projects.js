@@ -1,0 +1,236 @@
+import express from 'express';
+import { createRequireUser } from '../middleware/requireUser.js';
+import { requireSuperAdmin } from '../middleware/requireSuperAdmin.js';
+import { createRequireProjectRole } from '../middleware/requireProjectRole.js';
+import * as projects from '../services/projects.js';
+import * as projectMembers from '../services/projectMembers.js';
+import * as metadata from '../services/metadata.js';
+import * as metadataDb from '../db/metadata.js';
+
+const STATUS_FOR_CODE = {
+  invalid_name: 400,
+  invalid_role: 400,
+  invalid_kind: 404,
+  invalid_sort_order: 400,
+  not_found: 404,
+  project_not_found: 404,
+  project_archived: 409,
+  user_not_found: 404,
+  not_a_member: 404,
+  duplicate_member: 409,
+  duplicate_name: 409,
+  cannot_archive_default: 409,
+  cannot_archive_only_remaining: 409,
+  cannot_default_archived: 409,
+};
+
+function handleError(res, next, err) {
+  const status = STATUS_FOR_CODE[err?.code];
+  if (status) return res.status(status).json({ error: err.code });
+  return next(err);
+}
+
+export function createProjectsRouter({ db }) {
+  const router = express.Router();
+  const requireUser = createRequireUser({ db });
+  const requireProjectViewer = createRequireProjectRole({ db, minimum: 'viewer' });
+  const requireProjectDeveloper = createRequireProjectRole({ db, minimum: 'developer' });
+
+  router.use(requireUser);
+
+  // ---------- Admin: projects ----------
+
+  router.post('/admin/projects', requireSuperAdmin, (req, res, next) => {
+    try {
+      const project = projects.createProject(db, { name: req.body?.name });
+      res.status(201).json({ project });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.patch('/admin/projects/:id', requireSuperAdmin, (req, res, next) => {
+    try {
+      const id = Number.parseInt(req.params.id, 10);
+      const project = projects.renameProject(db, id, req.body?.name);
+      res.json({ project });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.post('/admin/projects/:id/archive', requireSuperAdmin, (req, res, next) => {
+    try {
+      const id = Number.parseInt(req.params.id, 10);
+      const project = projects.archiveProject(db, id);
+      res.json({ project });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.post('/admin/projects/:id/unarchive', requireSuperAdmin, (req, res, next) => {
+    try {
+      const id = Number.parseInt(req.params.id, 10);
+      const project = projects.unarchiveProject(db, id);
+      res.json({ project });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  // ---------- Admin: members ----------
+
+  router.post('/admin/projects/:id/members', requireSuperAdmin, (req, res, next) => {
+    try {
+      const projectId = Number.parseInt(req.params.id, 10);
+      const userId = Number.parseInt(req.body?.userId, 10);
+      if (!Number.isInteger(userId) || userId <= 0) {
+        return res.status(400).json({ error: 'invalid_user_id' });
+      }
+      const member = projectMembers.addMember(db, projectId, userId, req.body?.role);
+      res.status(201).json({ member });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.patch('/admin/projects/:id/members/:userId', requireSuperAdmin, (req, res, next) => {
+    try {
+      const projectId = Number.parseInt(req.params.id, 10);
+      const userId = Number.parseInt(req.params.userId, 10);
+      projectMembers.changeRole(db, projectId, userId, req.body?.role);
+      res.json({ ok: true });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.delete('/admin/projects/:id/members/:userId', requireSuperAdmin, (req, res, next) => {
+    try {
+      const projectId = Number.parseInt(req.params.id, 10);
+      const userId = Number.parseInt(req.params.userId, 10);
+      projectMembers.removeMember(db, projectId, userId);
+      res.json({ ok: true });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  // ---------- Project listing & detail ----------
+
+  router.get('/projects', (req, res, next) => {
+    try {
+      const includeArchived = req.query.includeArchived === '1';
+      const items = projects.listVisibleForUser(db, req.user, { includeArchived });
+      res.json({ projects: items });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/projects/:id', requireProjectViewer, (req, res, next) => {
+    try {
+      const detail = projects.getProjectDetail(db, req.project.id);
+      res.json(detail);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ---------- Metadata ----------
+
+  function readKind(req, res) {
+    const kind = req.params.kind;
+    if (!metadataDb.isValidKind(kind)) {
+      res.status(404).json({ error: 'invalid_kind' });
+      return null;
+    }
+    return kind;
+  }
+
+  router.get('/projects/:id/metadata/:kind', requireProjectViewer, (req, res, next) => {
+    try {
+      const kind = readKind(req, res);
+      if (!kind) return;
+      const includeArchived = req.query.includeArchived === '1';
+      const items = metadata.listKind(db, kind, req.project.id, { includeArchived });
+      res.json({ items });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.post('/projects/:id/metadata/:kind', requireProjectDeveloper, (req, res, next) => {
+    try {
+      const kind = readKind(req, res);
+      if (!kind) return;
+      const item = metadata.createItem(db, kind, req.project.id, {
+        name: req.body?.name,
+        isClosed: req.body?.isClosed,
+      });
+      res.status(201).json({ item });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.patch(
+    '/projects/:id/metadata/:kind/:itemId',
+    requireProjectDeveloper,
+    (req, res, next) => {
+      try {
+        const kind = readKind(req, res);
+        if (!kind) return;
+        const itemId = Number.parseInt(req.params.itemId, 10);
+        if (!Number.isInteger(itemId) || itemId <= 0) {
+          return res.status(404).json({ error: 'not_found' });
+        }
+
+        const projectId = req.project.id;
+        const body = req.body ?? {};
+
+        db.transaction(() => {
+          if (typeof body.name === 'string') {
+            metadata.renameItem(db, kind, projectId, itemId, body.name);
+          }
+          if (Object.prototype.hasOwnProperty.call(body, 'sortOrder')) {
+            metadata.reorder(db, kind, projectId, itemId, body.sortOrder);
+          }
+          if (body.isDefault === true) {
+            metadata.setDefault(db, kind, projectId, itemId);
+          }
+          if (Object.prototype.hasOwnProperty.call(body, 'isClosed')) {
+            metadata.setClosed(db, kind, projectId, itemId, !!body.isClosed);
+          }
+        })();
+
+        const item = metadataDb.getById(db, kind, itemId);
+        res.json({ item });
+      } catch (err) {
+        handleError(res, next, err);
+      }
+    },
+  );
+
+  router.delete(
+    '/projects/:id/metadata/:kind/:itemId',
+    requireProjectDeveloper,
+    (req, res, next) => {
+      try {
+        const kind = readKind(req, res);
+        if (!kind) return;
+        const itemId = Number.parseInt(req.params.itemId, 10);
+        if (!Number.isInteger(itemId) || itemId <= 0) {
+          return res.status(404).json({ error: 'not_found' });
+        }
+        metadata.archiveItem(db, kind, req.project.id, itemId);
+        res.json({ ok: true });
+      } catch (err) {
+        handleError(res, next, err);
+      }
+    },
+  );
+
+  return router;
+}

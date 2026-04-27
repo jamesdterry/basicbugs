@@ -69,7 +69,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 3 — Projects, members, and per-project metadata
+## Stage 3 DONE — Projects, members, and per-project metadata
 
 **Goal:** super admin can create projects, add members with roles, and the seeded metadata appears.
 
