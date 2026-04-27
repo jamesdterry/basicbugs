@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reset password — Basic Bugs</title>
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="/auth.css" />
+    <script type="module" src="/reset.js"></script>
+  </head>
+  <body>
+    <main class="auth">
+      <h1>Basic Bugs</h1>
+      <div id="status" class="status" hidden></div>
+
+      <section class="card">
+        <h2>Choose a new password</h2>
+        <form id="reset-form" novalidate>
+          <label>
+            <span>New password (min 10 characters)</span>
+            <input
+              type="password"
+              name="password"
+              autocomplete="new-password"
+              minlength="10"
+              required
+            />
+          </label>
+          <label>
+            <span>Confirm new password</span>
+            <input
+              type="password"
+              name="confirm"
+              autocomplete="new-password"
+              minlength="10"
+              required
+            />
+          </label>
+          <button type="submit">Save password</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

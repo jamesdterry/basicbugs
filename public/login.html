@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sign in — Basic Bugs</title>
+    <link rel="stylesheet" href="/app.css" />
+    <link rel="stylesheet" href="/auth.css" />
+    <script type="module" src="/login.js"></script>
+  </head>
+  <body>
+    <main class="auth">
+      <h1>Basic Bugs</h1>
+      <div id="status" class="status" hidden></div>
+
+      <section class="card">
+        <h2>Sign in with password</h2>
+        <form id="password-form" novalidate>
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input type="password" name="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit">Sign in</button>
+        </form>
+        <p>
+          <a href="#" id="forgot-link">Forgot your password?</a>
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Or get a sign-in link by email</h2>
+        <form id="magic-form" novalidate>
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+          <button type="submit">Email me a link</button>
+        </form>
+      </section>
+
+      <section class="card" id="forgot-card" hidden>
+        <h2>Send password reset</h2>
+        <form id="forgot-form" novalidate>
+          <label>
+            <span>Email</span>
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+          <button type="submit">Email reset link</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

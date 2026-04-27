@@ -1,0 +1,233 @@
+import express from 'express';
+import { config } from '../config.js';
+import * as passwords from '../services/passwords.js';
+import * as tokens from '../services/tokens.js';
+import * as sessions from '../services/sessions.js';
+import * as email from '../services/email.js';
+import * as usersDb from '../db/users.js';
+import * as authDb from '../db/auth.js';
+import { createRequireUser, SESSION_COOKIE } from '../middleware/requireUser.js';
+import { byIp, byEmail } from '../middleware/rateLimit.js';
+
+const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
+const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+const MIN_PASSWORD_LENGTH = 10;
+
+function cookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    signed: true,
+    secure: config.isProduction,
+    maxAge: sessions.TTL_MS,
+  };
+}
+
+function setSessionCookie(res, sessionId) {
+  res.cookie(SESSION_COOKIE, sessionId, cookieOptions());
+}
+
+function isValidEmail(value) {
+  return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizeEmail(value) {
+  return value.toLowerCase().trim();
+}
+
+export function createAuthRouter({ db }) {
+  const router = express.Router();
+  const requireUser = createRequireUser({ db });
+
+  const limitLogin = [
+    byIp({ name: 'login', capacity: 5, refillMs: 15 * 60 * 1000 }),
+    byEmail({ name: 'login', capacity: 5, refillMs: 15 * 60 * 1000 }),
+  ];
+  const limitMagic = [
+    byIp({ name: 'magic', capacity: 5, refillMs: 15 * 60 * 1000 }),
+    byEmail({ name: 'magic', capacity: 5, refillMs: 15 * 60 * 1000 }),
+  ];
+  const limitForgot = [
+    byIp({ name: 'forgot', capacity: 5, refillMs: 15 * 60 * 1000 }),
+    byEmail({ name: 'forgot', capacity: 5, refillMs: 15 * 60 * 1000 }),
+  ];
+
+  router.post('/login', ...limitLogin, async (req, res, next) => {
+    try {
+      const rawEmail = req.body?.email;
+      const password = req.body?.password;
+      if (!isValidEmail(rawEmail) || typeof password !== 'string' || !password) {
+        return res.status(401).json({ error: 'invalid_credentials' });
+      }
+      const user = usersDb.getByEmail(db, normalizeEmail(rawEmail));
+      if (!user || user.is_disabled || !user.password_hash) {
+        return res.status(401).json({ error: 'invalid_credentials' });
+      }
+      const ok = await passwords.verify(password, user.password_hash);
+      if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
+
+      const session = db.transaction(() => {
+        usersDb.setLastLoginAt(db, user.id);
+        return sessions.createForUser(db, {
+          userId: user.id,
+          userAgent: req.get('user-agent') ?? null,
+        });
+      })();
+
+      setSessionCookie(res, session.id);
+      res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          isSuperAdmin:
+            !!config.superAdminEmail && user.email.toLowerCase() === config.superAdminEmail,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/magic-link', ...limitMagic, async (req, res, next) => {
+    try {
+      const rawEmail = req.body?.email;
+      if (!isValidEmail(rawEmail)) return res.json({ ok: true });
+      const normalized = normalizeEmail(rawEmail);
+
+      const minted = db.transaction(() => {
+        let user = usersDb.getByEmail(db, normalized);
+        if (!user && normalized === config.superAdminEmail) {
+          user = usersDb.create(db, { email: normalized });
+        }
+        if (!user || user.is_disabled) return null;
+        const t = tokens.generate();
+        authDb.deleteForUser(db, user.id, 'magic_link');
+        const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS).toISOString();
+        authDb.insertToken(db, {
+          userId: user.id,
+          purpose: 'magic_link',
+          tokenHash: t.hash,
+          expiresAt,
+        });
+        return { raw: t.raw, to: user.email };
+      })();
+
+      if (minted) {
+        const url = `${config.baseUrl}/auth/verify?token=${encodeURIComponent(minted.raw)}`;
+        const tmpl = email.magicLinkEmail({ url });
+        await email.send({ to: minted.to, ...tmpl });
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/verify', (req, res, next) => {
+    try {
+      const raw = typeof req.query.token === 'string' ? req.query.token : '';
+      if (!raw) return res.redirect('/login.html?error=invalid_link');
+      const hash = tokens.hashRaw(raw);
+
+      const sessionResult = db.transaction(() => {
+        const tokenRow = authDb.findActiveByHash(db, hash, 'magic_link');
+        if (!tokenRow) return null;
+        authDb.markUsed(db, tokenRow.id);
+        usersDb.setLastLoginAt(db, tokenRow.user_id);
+        return sessions.createForUser(db, {
+          userId: tokenRow.user_id,
+          userAgent: req.get('user-agent') ?? null,
+        });
+      })();
+
+      if (!sessionResult) return res.redirect('/login.html?error=invalid_link');
+      setSessionCookie(res, sessionResult.id);
+      res.redirect('/');
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/logout', requireUser, (req, res, next) => {
+    try {
+      sessions.revoke(db, req.sessionId);
+      res.clearCookie(SESSION_COOKIE, { path: '/' });
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/forgot', ...limitForgot, async (req, res, next) => {
+    try {
+      const rawEmail = req.body?.email;
+      if (!isValidEmail(rawEmail)) return res.json({ ok: true });
+      const normalized = normalizeEmail(rawEmail);
+
+      const minted = db.transaction(() => {
+        const user = usersDb.getByEmail(db, normalized);
+        if (!user || user.is_disabled || !user.password_hash) return null;
+        const t = tokens.generate();
+        authDb.deleteForUser(db, user.id, 'password_reset');
+        const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS).toISOString();
+        authDb.insertToken(db, {
+          userId: user.id,
+          purpose: 'password_reset',
+          tokenHash: t.hash,
+          expiresAt,
+        });
+        return { raw: t.raw, to: user.email };
+      })();
+
+      if (minted) {
+        const url = `${config.baseUrl}/reset.html?token=${encodeURIComponent(minted.raw)}`;
+        const tmpl = email.passwordResetEmail({ url });
+        await email.send({ to: minted.to, ...tmpl });
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.post('/reset', async (req, res, next) => {
+    try {
+      const raw = req.body?.token;
+      const password = req.body?.password;
+      if (typeof raw !== 'string' || !raw) {
+        return res.status(400).json({ error: 'invalid_token' });
+      }
+      if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+        return res.status(400).json({ error: 'weak_password' });
+      }
+
+      const hash = tokens.hashRaw(raw);
+      const tokenRow = authDb.findActiveByHash(db, hash, 'password_reset');
+      if (!tokenRow) return res.status(400).json({ error: 'invalid_token' });
+
+      const passwordHash = await passwords.hash(password);
+
+      db.transaction(() => {
+        authDb.markUsed(db, tokenRow.id);
+        usersDb.setPasswordHash(db, tokenRow.user_id, passwordHash);
+        sessions.revokeAllForUser(db, tokenRow.user_id);
+      })();
+
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  router.get('/me', requireUser, (req, res) => {
+    res.json({ user: req.user });
+  });
+
+  return router;
+}
+
+export function _consts() {
+  return { MAGIC_LINK_TTL_MS, PASSWORD_RESET_TTL_MS, MIN_PASSWORD_LENGTH };
+}

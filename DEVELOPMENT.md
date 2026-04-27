@@ -46,7 +46,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 2 — Authentication
+## Stage 2 DONE — Authentication
 
 **Goal:** password + magic-link login work end-to-end, sessions are cookie-backed and revocable, super admin is recognized.
 
