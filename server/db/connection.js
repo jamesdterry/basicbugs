@@ -1,6 +1,29 @@
-// Stage 1 wires up better-sqlite3 here. Stage 0 ships an empty stub so the
-// directory exists and the import path is reserved.
+import fs from 'node:fs';
+import path from 'node:path';
+import Database from 'better-sqlite3';
+import { config } from '../config.js';
+
+let singleton = null;
+
+export function openConnection(filename) {
+  if (filename !== ':memory:') {
+    fs.mkdirSync(path.dirname(filename), { recursive: true });
+  }
+  const db = new Database(filename);
+  db.pragma('foreign_keys = ON');
+  if (filename !== ':memory:') db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
+  return db;
+}
 
 export function getDb() {
-  throw new Error('Database is not initialised yet — see Stage 1 in DEVELOPMENT.md.');
+  if (!singleton) singleton = openConnection(config.dbPath);
+  return singleton;
+}
+
+export function closeDb() {
+  if (singleton) {
+    singleton.close();
+    singleton = null;
+  }
 }

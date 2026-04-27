@@ -4,7 +4,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 0 — Project skeleton & deploy pipeline
+## Stage 0 DONE — Project skeleton & deploy pipeline
 
 **Goal:** an empty Express app deploys to fly.io and serves a "hello" page.
 
@@ -31,7 +31,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 1 — Database layer & migrations
+## Stage 1 DONE — Database layer & migrations
 
 **Goal:** schema from `db.sql` is created via a migration runner; integration tests can spin up an isolated DB.
 
