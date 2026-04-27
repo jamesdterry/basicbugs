@@ -1,0 +1,41 @@
+# fly.toml app configuration file generated for basicbugs on 2026-04-27T13:49:08-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'basicbugs'
+primary_region = 'iad'
+
+[build]
+
+[deploy]
+  release_command = 'node scripts/migrate.js'
+
+[env]
+  ATTACHMENTS_DIR = '/data/attachments'
+  DB_PATH = '/data/basicbugs.sqlite'
+  NODE_ENV = 'production'
+  PORT = '8080'
+
+[[mounts]]
+  source = 'basicbugs_data'
+  destination = '/data'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '10s'
+    method = 'GET'
+    path = '/healthz'
+
+[[vm]]
+  memory = '512mb'
+  cpus = 1
+  memory_mb = 512

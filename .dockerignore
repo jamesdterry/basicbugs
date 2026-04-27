@@ -1,0 +1,15 @@
+node_modules
+coverage
+data
+attachments
+.git
+.github
+.env
+.env.local
+.DS_Store
+*.log
+test
+DEVELOPMENT.md
+CLAUDE.md
+README.md
+db.sql
