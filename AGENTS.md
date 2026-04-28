@@ -4,7 +4,8 @@ Open-source bug tracker aimed at consultants. Vanilla JS/CSS/HTML on a Node + Ex
 
 ## Working with this codebase
 
-- **Never run `git commit`, `git push`, `git tag`, or any other history-changing git command.** The maintainer commits manually. You may stage with `git add` only when explicitly asked, and you may run read-only git commands (`status`, `diff`, `log`, `show`) freely. If you think a commit is the right next step, propose the message and stop there.
+- **Only commit when explicitly told to.** `git add` and `git commit` are fine on a direct request from the maintainer for that single commit; do not generalize an approval to subsequent work. Read-only git commands (`status`, `diff`, `log`, `show`, `blame`) are always fine.
+- **Never push to a remote.** No `git push` (including `--force`), no `git push --tags`, and no tool action that triggers a push (e.g. `gh pr create` from a not-yet-pushed branch). The maintainer pushes manually.
 
 ## Stack & conventions
 
