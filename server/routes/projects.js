@@ -21,7 +21,14 @@ export function createProjectsRouter({ db }) {
 
   router.post('/admin/projects', requireSuperAdmin, (req, res, next) => {
     try {
-      const project = projects.createProject(db, { name: req.body?.name });
+      const addSelf = req.body?.addSelfAsMember !== false;
+      const project = db.transaction(() => {
+        const created = projects.createProject(db, { name: req.body?.name });
+        if (addSelf) {
+          projectMembers.addMember(db, created.id, req.user.id, 'developer');
+        }
+        return created;
+      })();
       res.status(201).json({ project });
     } catch (err) {
       handleError(res, next, err);

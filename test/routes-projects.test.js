@@ -77,6 +77,30 @@ describe('POST /api/admin/projects', () => {
     expect(r.status).toBe(400);
     expect(r.body.error).toBe('invalid_name');
   });
+
+  it('adds the super admin as a developer member by default', async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const create = await sa.post('/api/admin/projects').send({ name: 'Acme' });
+    const adminUser = usersDb.getByEmail(db, config.superAdminEmail);
+    const member = db
+      .prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?')
+      .get(create.body.project.id, adminUser.id);
+    expect(member?.role).toBe('developer');
+  });
+
+  it('skips adding the super admin when addSelfAsMember=false', async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const create = await sa
+      .post('/api/admin/projects')
+      .send({ name: 'Acme', addSelfAsMember: false });
+    const adminUser = usersDb.getByEmail(db, config.superAdminEmail);
+    const member = db
+      .prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?')
+      .get(create.body.project.id, adminUser.id);
+    expect(member).toBeUndefined();
+  });
 });
 
 describe('PATCH /api/admin/projects/:id and archive', () => {

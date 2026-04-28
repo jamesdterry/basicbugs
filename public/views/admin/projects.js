@@ -202,9 +202,26 @@ function openCreateModal(reload) {
     placeholder: 'Project name',
     'aria-label': 'Project name',
   });
+  const addSelfCheckbox = h('input', {
+    type: 'checkbox',
+    checked: true,
+    'aria-label': 'Add me as a developer on this project',
+  });
+  const addSelfLabel = h(
+    'label',
+    { class: 'inline-checkbox' },
+    addSelfCheckbox,
+    document.createTextNode(' Add me as a developer (so I can be assigned issues)'),
+  );
   openModal({
     title: 'Create project',
-    body: h('div', { class: 'me-form' }, h('label', {}, 'Name'), input),
+    body: h(
+      'div',
+      { class: 'me-form' },
+      h('label', {}, 'Name'),
+      input,
+      addSelfLabel,
+    ),
     actions: [
       { label: 'Cancel' },
       {
@@ -217,7 +234,10 @@ function openCreateModal(reload) {
             return;
           }
           try {
-            await postJson('/api/admin/projects', { name });
+            await postJson('/api/admin/projects', {
+              name,
+              addSelfAsMember: addSelfCheckbox.checked,
+            });
             close();
             showToast('Project created', 'info');
             reload();
