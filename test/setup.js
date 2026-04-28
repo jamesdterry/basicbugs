@@ -7,3 +7,6 @@ process.env.DB_PATH = ':memory:';
 process.env.ATTACHMENTS_DIR = './data/attachments-test';
 // SMTP_HOST left empty so services/email.js logs instead of sending.
 process.env.SMTP_HOST = '';
+// Cost-12 bcrypt under parallel-file load saturates CPU and triggers
+// ECONNRESETs in supertest. Cost 4 still exercises the same code path.
+process.env.BCRYPT_COST = '4';
