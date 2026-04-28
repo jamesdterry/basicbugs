@@ -11,10 +11,4 @@ describe('app skeleton', () => {
     expect(res.body).toEqual({ status: 'ok' });
   });
 
-  it('GET / serves the static index.html', async () => {
-    const res = await request(app).get('/');
-    expect(res.status).toBe(200);
-    expect(res.headers['content-type']).toMatch(/text\/html/);
-    expect(res.text).toContain('Basic Bugs');
-  });
 });

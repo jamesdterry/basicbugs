@@ -111,7 +111,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 5 — Frontend shell, project picker, and login UI
+## Stage 5 DONE — Frontend shell, project picker, and login UI
 
 **Goal:** logged-in users see a project picker (or auto-redirect) and a navigable shell.
 

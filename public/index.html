@@ -8,9 +8,11 @@
     <script type="module" src="/app.js"></script>
   </head>
   <body>
-    <main>
-      <h1>Basic Bugs</h1>
-      <p>The skeleton is up. Real UI lands in Stage 5.</p>
+    <header id="topbar" class="topbar"></header>
+    <main id="app-root" class="app-root" aria-live="polite">
+      <p class="muted">Loading…</p>
     </main>
+    <div id="toast-host" class="toast-host" aria-live="polite"></div>
+    <div id="modal-host" class="modal-host"></div>
   </body>
 </html>

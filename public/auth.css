@@ -1,18 +1,10 @@
-main.auth {
-  max-width: 28rem;
-  text-align: left;
-}
-
-main.auth h1 {
-  text-align: center;
-}
-
 .card {
-  background: #fff;
-  border: 1px solid #e3e3e3;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
   padding: 1.25rem 1.5rem;
   margin: 1rem 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .card h2 {
@@ -45,8 +37,8 @@ main.auth h1 {
   padding: 0.6rem 1rem;
   border: 0;
   border-radius: 0.35rem;
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-fg);
   font: inherit;
   cursor: pointer;
 }
@@ -64,13 +56,13 @@ main.auth h1 {
 }
 
 .status.error {
-  background: #fde8e8;
-  color: #6b1d1d;
-  border: 1px solid #f5b5b5;
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border: 1px solid var(--error-border);
 }
 
 .status.info {
-  background: #eef4ff;
-  color: #1f3766;
-  border: 1px solid #c5d3ee;
+  background: var(--info-bg);
+  color: var(--info-fg);
+  border: 1px solid var(--info-border);
 }

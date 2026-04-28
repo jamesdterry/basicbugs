@@ -2,6 +2,20 @@
   --bg: #fafafa;
   --fg: #1a1a1a;
   --muted: #666;
+  --surface: #fff;
+  --border: #e3e3e3;
+  --hover: #f0f0f0;
+  --accent: #1a1a1a;
+  --accent-fg: #fff;
+  --error-bg: #fde8e8;
+  --error-fg: #6b1d1d;
+  --error-border: #f5b5b5;
+  --info-bg: #eef4ff;
+  --info-fg: #1f3766;
+  --info-border: #c5d3ee;
+  --radius: 0.4rem;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 * {
@@ -25,18 +39,317 @@ body {
   line-height: 1.5;
 }
 
-main {
-  max-width: 40rem;
-  margin: 4rem auto;
-  padding: 0 1.5rem;
-  text-align: center;
+a {
+  color: var(--accent);
 }
 
-h1 {
+.muted {
+  color: var(--muted);
+}
+
+/* ---------- Auth pages keep their original centered layout ---------- */
+
+main.auth {
+  max-width: 28rem;
+  margin: 4rem auto;
+  padding: 0 1.5rem;
+  text-align: left;
+}
+
+main.auth h1 {
+  text-align: center;
   font-size: 2rem;
   margin-bottom: 0.5rem;
 }
 
-p {
+/* ---------- App shell ---------- */
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar-inner {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.topbar-brand {
+  font-weight: 600;
+  font-size: 1.05rem;
+  text-decoration: none;
+  color: var(--fg);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.topbar-name {
   color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.topbar-logout {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.topbar-logout:hover {
+  background: var(--hover);
+}
+
+.topbar-logout:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.app-root {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+/* ---------- Views ---------- */
+
+.view h1 {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.view-header {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.view-eyebrow {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.view-eyebrow a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.view-eyebrow a:hover {
+  color: var(--fg);
+}
+
+.placeholder-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.placeholder-card p {
+  margin: 0 0 0.5rem;
+}
+
+.placeholder-card p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---------- Project picker ---------- */
+
+.project-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.project-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.1s ease;
+}
+
+.project-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.project-card-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius);
+}
+
+.project-card-name {
+  font-weight: 500;
+}
+
+.project-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ---------- Role badge ---------- */
+
+.role-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: lowercase;
+  background: var(--hover);
+  color: var(--muted);
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.role-badge-admin {
+  background: var(--info-bg);
+  color: var(--info-fg);
+  border-color: var(--info-border);
+}
+
+/* ---------- Toast ---------- */
+
+.toast-host {
+  position: fixed;
+  bottom: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 30;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  font-size: 0.95rem;
+  max-width: 22rem;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.toast-error {
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-color: var(--error-border);
+}
+
+.toast-info {
+  background: var(--info-bg);
+  color: var(--info-fg);
+  border-color: var(--info-border);
+}
+
+.toast-leaving {
+  opacity: 0;
+  transform: translateY(0.5rem);
+}
+
+/* ---------- Modal ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 20;
+}
+
+.modal-dialog {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.5rem;
+  max-width: 28rem;
+  width: 100%;
+  box-shadow: var(--shadow-md);
+}
+
+.modal-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.modal-body {
+  margin: 0 0 1rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-btn {
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font: inherit;
+  cursor: pointer;
+}
+
+.modal-btn:hover {
+  background: var(--hover);
+}
+
+.modal-btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+
+.modal-btn-danger {
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-color: var(--error-border);
+}
+
+/* ---------- Mobile ---------- */
+
+@media (max-width: 720px) {
+  .topbar-inner {
+    padding: 0.6rem 1rem;
+  }
+
+  .topbar-name {
+    display: none;
+  }
+
+  .app-root {
+    padding: 1.25rem 1rem 3rem;
+  }
 }
