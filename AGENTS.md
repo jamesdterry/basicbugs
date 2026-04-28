@@ -2,6 +2,10 @@
 
 Open-source bug tracker aimed at consultants. Vanilla JS/CSS/HTML on a Node + Express server backed by SQLite (`better-sqlite3`). Deploys to fly.io.
 
+## Working with this codebase
+
+- **Never run `git commit`, `git push`, `git tag`, or any other history-changing git command.** The maintainer commits manually. You may stage with `git add` only when explicitly asked, and you may run read-only git commands (`status`, `diff`, `log`, `show`) freely. If you think a commit is the right next step, propose the message and stop there.
+
 ## Stack & conventions
 
 - **Server:** Node LTS, Express, `better-sqlite3`, bcrypt, nodemailer, helmet.
