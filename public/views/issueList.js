@@ -13,6 +13,8 @@ import {
 import { FilterBar } from '../components/FilterBar.js';
 import { IssueTable } from '../components/IssueTable.js';
 import { showToast } from '../components/Toast.js';
+import { openNewIssueModal } from '../components/NewIssueModal.js';
+import { canEditField } from '../components/IssueFields.js';
 
 const PAGE_SIZE = 25;
 
@@ -29,15 +31,46 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
 
   const contentEl = h('div', { class: 'issue-list-content' });
   const filterBarHolder = h('div', { class: 'filter-bar-holder' });
+  const toolbarEl = buildToolbar();
   const debouncedFetch = debounce(() => fetchPage(), 200);
 
   filterBarHolder.replaceChildren(buildFilterBar());
 
-  const root = h('div', { class: 'issue-list' }, filterBarHolder, contentEl);
+  const root = h('div', { class: 'issue-list' }, toolbarEl, filterBarHolder, contentEl);
 
   fetchPage();
 
   return root;
+
+  function buildToolbar() {
+    const role = project.role ?? 'viewer';
+    const canCreate = canEditField(role, 'name');
+    return h(
+      'div',
+      { class: 'issue-list-toolbar' },
+      h('div', { class: 'issue-list-toolbar-spacer' }),
+      canCreate
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'modal-btn modal-btn-primary',
+              onclick: () =>
+                openNewIssueModal({
+                  project,
+                  metadata,
+                  members,
+                  role,
+                  onCreated: (issue) => {
+                    location.hash = `#/projects/${project.id}/issues/${issue.number}`;
+                  },
+                }),
+            },
+            '+ New issue',
+          )
+        : null,
+    );
+  }
 
   function buildFilterBar() {
     return FilterBar({
@@ -262,11 +295,32 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
 
   function emptyState() {
     if (filtersAreDefault(filters, defaults)) {
+      const role = project.role ?? 'viewer';
+      const canCreate = canEditField(role, 'name');
       return h(
         'div',
         { class: 'empty-state' },
         h('p', {}, 'No issues yet.'),
-        h('p', { class: 'muted' }, 'Issue creation lands in Stage 7.'),
+        canCreate
+          ? h(
+              'button',
+              {
+                type: 'button',
+                class: 'modal-btn modal-btn-primary',
+                onclick: () =>
+                  openNewIssueModal({
+                    project,
+                    metadata,
+                    members,
+                    role,
+                    onCreated: (issue) => {
+                      location.hash = `#/projects/${project.id}/issues/${issue.number}`;
+                    },
+                  }),
+              },
+              'Create the first issue',
+            )
+          : h('p', { class: 'muted' }, 'A project member will create issues here.'),
       );
     }
     return h(

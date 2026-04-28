@@ -259,6 +259,81 @@ describe('GET /api/projects/:id/issues — list + filters', () => {
   });
 });
 
+describe('Stage 7 — issue detail flow', () => {
+  beforeEach(() => resetRateLimit());
+
+  it('records create + 2 edits + 1 comment as 4 distinct history events', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'Triage me' });
+
+    const statuses = await aliceAgent.get(`/api/projects/${project.id}/metadata/statuses`);
+    const inProgress = statuses.body.items.find((s) => s.name === 'In Progress');
+
+    // First save: name + status with a note (one event, two change rows).
+    const firstPatch = await aliceAgent
+      .patch(`/api/projects/${project.id}/issues/1`)
+      .send({
+        patch: { name: 'Triage and rename', statusId: inProgress.id },
+        note: 'starting work',
+      });
+    expect(firstPatch.status).toBe(200);
+
+    // Second save: description only.
+    const secondPatch = await aliceAgent
+      .patch(`/api/projects/${project.id}/issues/1`)
+      .send({ patch: { description: 'Repro: open the app, click X.' } });
+    expect(secondPatch.status).toBe(200);
+
+    // Comment.
+    await aliceAgent
+      .post(`/api/projects/${project.id}/issues/1/comments`)
+      .send({ body: 'still seeing this on staging' });
+
+    const detail = await aliceAgent.get(`/api/projects/${project.id}/issues/1`);
+    expect(detail.status).toBe(200);
+    expect(detail.body.history).toHaveLength(4);
+    const kinds = detail.body.history.map((e) => e.kind);
+    expect(kinds).toEqual(['comment', 'change', 'change', 'creation']);
+
+    const [comment, descChange, multiChange] = detail.body.history;
+    expect(comment.note).toBe('still seeing this on staging');
+    expect(comment.changes).toEqual([]);
+
+    expect(descChange.note).toBeNull();
+    expect(descChange.changes).toHaveLength(1);
+    expect(descChange.changes[0].field).toBe('description');
+
+    expect(multiChange.note).toBe('starting work');
+    expect(multiChange.changes.map((c) => c.field).sort()).toEqual(['name', 'status']);
+
+    // Display strings, not FK ids, are persisted on history.
+    const statusChange = multiChange.changes.find((c) => c.field === 'status');
+    expect(statusChange.old_value).toBe('Open');
+    expect(statusChange.new_value).toBe('In Progress');
+  });
+
+  it('renaming a status afterwards does not rewrite old history rows', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'i' });
+    const statuses = await aliceAgent.get(`/api/projects/${project.id}/metadata/statuses`);
+    const inProgress = statuses.body.items.find((s) => s.name === 'In Progress');
+
+    await aliceAgent
+      .patch(`/api/projects/${project.id}/issues/1`)
+      .send({ patch: { statusId: inProgress.id } });
+
+    await aliceAgent
+      .patch(`/api/projects/${project.id}/metadata/statuses/${inProgress.id}`)
+      .send({ name: 'Doing' });
+
+    const detail = await aliceAgent.get(`/api/projects/${project.id}/issues/1`);
+    const change = detail.body.history.find((e) => e.kind === 'change');
+    const statusRow = change.changes.find((c) => c.field === 'status');
+    expect(statusRow.new_value).toBe('In Progress');
+    expect(detail.body.issue.status.name).toBe('Doing');
+  });
+});
+
 describe('archive routes', () => {
   beforeEach(() => resetRateLimit());
 

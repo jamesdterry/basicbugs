@@ -27,7 +27,7 @@ export default defineConfig({
     },
     {
       name: 'authed',
-      testMatch: /smoke\.spec\.js/,
+      testMatch: /(smoke|issue-detail)\.spec\.js/,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
     },

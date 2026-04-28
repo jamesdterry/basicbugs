@@ -608,6 +608,366 @@ main.auth h1 {
   margin: 0;
 }
 
+/* ---------- Issue list toolbar ---------- */
+
+.issue-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.issue-list-toolbar-spacer {
+  flex: 1;
+}
+
+/* ---------- Issue detail ---------- */
+
+.view-issue-detail .view-header {
+  margin-bottom: 1rem;
+}
+
+.issue-detail-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.issue-detail-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
+.issue-archived-badge {
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-color: var(--error-border);
+}
+
+.issue-detail-loading,
+.issue-detail-error {
+  margin: 1.5rem 0;
+}
+
+.issue-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.issue-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.issue-detail-sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.issue-detail-sidebar > .field-cell {
+  border-bottom: 1px solid var(--border);
+}
+
+.issue-detail-sidebar > .field-cell:last-child {
+  border-bottom: none;
+}
+
+.issue-detail-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.issue-detail-danger {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.issue-detail-danger .modal-btn-danger {
+  width: 100%;
+}
+
+.issue-detail-history {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.issue-detail-history h2,
+.issue-detail-comment h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.issue-detail-comment {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---------- Field cells (inline editor) ---------- */
+
+.field-cell {
+  padding: 0.65rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: var(--radius);
+}
+
+.field-cell.field-editable {
+  cursor: text;
+}
+
+.field-cell.field-editable:hover {
+  background: var(--hover);
+}
+
+.field-cell.field-dirty {
+  outline: 2px solid var(--info-border);
+  outline-offset: -2px;
+  background: var(--info-bg);
+}
+
+.field-cell.field-dirty:hover {
+  background: var(--info-bg);
+}
+
+.field-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.field-display {
+  font-size: 0.95rem;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.field-name {
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+
+.field-description {
+  min-height: 2rem;
+}
+
+.field-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field-input {
+  font: inherit;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  width: 100%;
+}
+
+.field-textarea {
+  resize: vertical;
+  min-height: 5rem;
+  font-family: inherit;
+}
+
+.field-hint {
+  font-size: 0.8rem;
+}
+
+/* ---------- Save bar ---------- */
+
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  z-index: 5;
+}
+
+.save-bar-summary {
+  font-size: 0.95rem;
+}
+
+.save-bar-note {
+  width: 100%;
+}
+
+.save-bar-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* ---------- Comment box ---------- */
+
+.comment-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.comment-box-input {
+  resize: vertical;
+  min-height: 4rem;
+  font-family: inherit;
+}
+
+.comment-box-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.comment-box-hint {
+  font-size: 0.8rem;
+}
+
+/* ---------- History timeline ---------- */
+
+.history-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.history-event {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.65rem 0.85rem;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.history-event-creation {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+}
+
+.history-event-comment {
+  background: var(--surface);
+}
+
+.history-event-header {
+  font-size: 0.9rem;
+}
+
+.history-author {
+  font-weight: 500;
+}
+
+.history-time {
+  font-size: 0.85rem;
+}
+
+.history-body {
+  font-size: 0.95rem;
+}
+
+.history-comment,
+.history-note {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.history-change-row {
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.history-change-field {
+  font-weight: 500;
+}
+
+.history-change-old {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.history-change-new {
+  font-weight: 500;
+}
+
+.history-empty {
+  margin: 0;
+}
+
+/* ---------- New issue modal form ---------- */
+
+.new-issue-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.modal-field-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.modal-error {
+  margin: 0;
+  color: var(--error-fg);
+  min-height: 1.2rem;
+  font-size: 0.9rem;
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 720px) {
@@ -666,5 +1026,13 @@ main.auth h1 {
 
   .pager-controls {
     justify-content: flex-start;
+  }
+
+  .issue-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .issue-detail-sidebar {
+    order: -1;
   }
 }

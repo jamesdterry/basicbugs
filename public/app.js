@@ -5,12 +5,13 @@ import { TopBar } from './components/TopBar.js';
 import { showToast } from './components/Toast.js';
 import { ProjectPicker } from './components/ProjectPicker.js';
 import { projectHome } from './views/projectHome.js';
+import { issueDetail } from './views/issueDetail.js';
 import { notFound, placeholder } from './views/notFound.js';
 
 const handlers = {
   home: () => ProjectPicker({ projects: state.projects }),
   projectHome,
-  issueDetail: placeholder('Issue detail', 'The issue detail view lands in Stage 7.'),
+  issueDetail,
   admin: placeholder('Admin', 'The admin surfaces land in Stage 8.'),
   me: placeholder('Profile', 'The profile screen lands in Stage 8.'),
   notFound,

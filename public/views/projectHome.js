@@ -49,7 +49,7 @@ export function projectHome(params) {
     }));
     content.replaceWith(
       IssueList({
-        project: detail.project,
+        project: { ...detail.project, role: project.role },
         metadata: detail.metadata,
         members,
         currentUserId: state.currentUser?.id,

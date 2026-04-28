@@ -167,7 +167,7 @@ Lets a real browser drive the SPA end-to-end (so future agentic sessions can ver
 
 ---
 
-## Stage 7 — Issue detail, edit-with-history, and comments
+## Stage 7 DONE — Issue detail, edit-with-history, and comments
 
 **Goal:** the second-most-important screen.
 
