@@ -33,6 +33,32 @@ export const postJson = (url, body = {}) => request('POST', url, body);
 export const patchJson = (url, body = {}) => request('PATCH', url, body);
 export const deleteJson = (url) => request('DELETE', url);
 
+export async function postForm(url, formData) {
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json' },
+    body: formData,
+  });
+  if (res.status === 401) {
+    location.href = '/login.html';
+    throw new Error('unauthorized');
+  }
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    /* non-json */
+  }
+  if (!res.ok) {
+    const err = new Error(data?.error ?? `http_${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
+
 export function qs(obj) {
   if (!obj) return '';
   const parts = [];

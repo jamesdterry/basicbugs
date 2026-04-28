@@ -1,5 +1,5 @@
 import { h, state } from '../lib/state.js';
-import { getJson, patchJson, postJson } from '../lib/api.js';
+import { getJson, patchJson, postJson, postForm } from '../lib/api.js';
 import { showToast } from '../components/Toast.js';
 import { openModal } from '../components/Modal.js';
 import {
@@ -14,6 +14,8 @@ import {
 import { HistoryTimeline } from '../components/HistoryTimeline.js';
 import { SaveBar } from '../components/SaveBar.js';
 import { CommentBox } from '../components/CommentBox.js';
+import { AttachmentList } from '../components/AttachmentList.js';
+import { AttachmentDropzone } from '../components/AttachmentDropzone.js';
 import { formatRelative, formatAbsolute } from '../lib/relativeTime.js';
 
 export function issueDetail(params) {
@@ -36,8 +38,10 @@ export function issueDetail(params) {
     members: [],
     issue: null,
     history: [],
+    attachments: [],
     pendingPatch: {},
     saveNote: '',
+    pendingCommentFiles: [],
     saving: false,
     commenting: false,
     archiving: false,
@@ -95,6 +99,7 @@ export function issueDetail(params) {
             onCommit: (next) =>
               commitField('description', normalizeDescription(next), ctx.issue.description ?? null),
           }),
+          attachmentsSection(),
           h(
             'section',
             { class: 'issue-detail-history' },
@@ -112,6 +117,7 @@ export function issueDetail(params) {
               disabled: !canComment(),
               placeholder: canComment() ? 'Write a comment…' : 'Viewers cannot comment.',
             }),
+            commentDropzone(),
           ),
         ),
         h(
@@ -188,6 +194,42 @@ export function issueDetail(params) {
     );
   }
 
+  function attachmentsSection() {
+    const canUpload = !ctx.issue?.archived_at && canComment();
+    const dropzone = canUpload
+      ? AttachmentDropzone({
+          mode: 'immediate',
+          onFiles: (files) => uploadFiles(files),
+          onError: (msg) => showToast(msg, 'error'),
+          label: 'Drop files here, or click to attach',
+        })
+      : null;
+
+    return h(
+      'section',
+      { class: 'issue-detail-attachments' },
+      h('h2', {}, 'Attachments'),
+      AttachmentList({
+        attachments: ctx.attachments,
+        currentUserId: state.currentUser?.id,
+        role: ctx.role,
+        onArchive: archiveAttachment,
+      }),
+      dropzone,
+    );
+  }
+
+  function commentDropzone() {
+    if (!canComment()) return null;
+    const dz = AttachmentDropzone({
+      mode: 'pending',
+      label: 'Attach files to this comment (optional)',
+      onError: (msg) => showToast(msg, 'error'),
+    });
+    ctx.commentDropzoneEl = dz;
+    return dz;
+  }
+
   function metaBlock() {
     if (!ctx.issue) return null;
     const created = ctx.issue.created_at;
@@ -261,6 +303,7 @@ export function issueDetail(params) {
       if (reqId !== ctx.requestSeq) return;
       ctx.issue = detail.issue;
       ctx.history = detail.history ?? [];
+      ctx.attachments = detail.attachments ?? [];
       ctx.metadata = projectDetail.metadata ?? { statuses: [], categories: [], priorities: [] };
       ctx.members = (projectDetail.members ?? []).map((m) => ({
         id: m.user_id ?? m.id,
@@ -287,6 +330,7 @@ export function issueDetail(params) {
       if (reqId !== ctx.requestSeq) return;
       ctx.issue = detail.issue;
       ctx.history = detail.history ?? [];
+      ctx.attachments = detail.attachments ?? [];
     } catch (err) {
       if (reqId !== ctx.requestSeq) return;
       showToast(`Could not refresh issue: ${err?.message ?? 'unknown error'}`, 'error');
@@ -341,13 +385,64 @@ export function issueDetail(params) {
     render();
     try {
       await postJson(`/api/projects/${ctx.projectId}/issues/${ctx.number}/comments`, { body });
-      showToast('Comment posted', 'info');
+      const pendingFiles = ctx.commentDropzoneEl?.getPending?.() ?? [];
+      if (pendingFiles.length > 0) {
+        const failures = await uploadFilesQuiet(pendingFiles);
+        if (failures.length > 0) {
+          showToast(`Comment posted; ${failures.length} attachment(s) failed`, 'error');
+        } else {
+          showToast('Comment posted', 'info');
+        }
+        ctx.commentDropzoneEl?.clear?.();
+      } else {
+        showToast('Comment posted', 'info');
+      }
       await refetchIssue();
     } catch (err) {
       showToast(`Could not post comment: ${err?.message ?? 'unknown error'}`, 'error');
     } finally {
       ctx.commenting = false;
       render();
+    }
+  }
+
+  async function uploadFiles(files) {
+    const failures = await uploadFilesQuiet(files);
+    if (failures.length > 0) {
+      showToast(
+        `${failures.length} of ${files.length} attachment(s) failed`,
+        'error',
+      );
+    } else {
+      showToast(`Uploaded ${files.length} attachment${files.length === 1 ? '' : 's'}`, 'info');
+    }
+    await refetchIssue();
+  }
+
+  async function uploadFilesQuiet(files) {
+    const failures = [];
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append('file', file, file.name);
+      try {
+        await postForm(
+          `/api/projects/${ctx.projectId}/issues/${ctx.number}/attachments`,
+          fd,
+        );
+      } catch (err) {
+        failures.push({ file, error: err });
+      }
+    }
+    return failures;
+  }
+
+  async function archiveAttachment(att) {
+    try {
+      await postJson(`/api/attachments/${att.id}/archive`, {});
+      showToast('Attachment archived', 'info');
+      await refetchIssue();
+    } catch (err) {
+      showToast(`Could not archive: ${err?.message ?? 'unknown error'}`, 'error');
     }
   }
 

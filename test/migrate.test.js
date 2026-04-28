@@ -14,6 +14,7 @@ const EXPECTED_TABLES = [
   'issue_history_changes',
   'auth_tokens',
   'sessions',
+  'attachments',
 ];
 
 function listSchemaTables(db) {
@@ -30,7 +31,7 @@ function listSchemaTables(db) {
 }
 
 describe('runMigrations', () => {
-  it('creates all 11 schema tables on a fresh db', () => {
+  it('creates all expected schema tables on a fresh db', () => {
     const db = openConnection(':memory:');
     runMigrations(db);
 

@@ -19,6 +19,9 @@ export const STATUS_FOR_CODE = Object.freeze({
   invalid_email: 400,
   invalid_project: 400,
   invalid_source: 400,
+  invalid_filename: 400,
+  invalid_content_type: 400,
+  missing_file: 400,
   password_too_short: 400,
   wrong_password: 400,
 
@@ -34,6 +37,9 @@ export const STATUS_FOR_CODE = Object.freeze({
 
   // Conflict / invariants
   project_archived: 409,
+  issue_archived: 409,
+  attachment_too_large: 413,
+  unsupported_media_type: 415,
   duplicate_member: 409,
   duplicate_name: 409,
   duplicate_email: 409,

@@ -214,6 +214,10 @@ Lets a real browser drive the SPA end-to-end (so future agentic sessions can ver
 
 ---
 
+E2e suite remains flaky under default parallel workers due to pre-existing SQLite WAL contention; passes cleanly with workers=1 (CI default).
+
+---
+
 ## Stage 10 — Notifications, @mentions, and watching
 
 **Goal:** users get emailed on changes that matter to them.

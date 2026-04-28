@@ -1471,3 +1471,232 @@ main.auth h1 {
   font-size: 0.9rem;
   color: var(--fg);
 }
+
+/* ---------- Stage 9: attachments ---------- */
+.attachments-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.attachments-empty {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.attachments-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.6rem;
+}
+
+.attachment-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.attachment-thumb-link,
+.attachment-icon-link {
+  display: block;
+  border-radius: calc(var(--radius) - 0.1rem);
+  overflow: hidden;
+  background: var(--hover);
+  text-decoration: none;
+}
+
+.attachment-thumb {
+  display: block;
+  width: 100%;
+  height: 7rem;
+  object-fit: cover;
+}
+
+.attachment-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 5rem;
+  font-size: 2rem;
+}
+
+.attachment-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.attachment-filename {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--fg);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-filename:hover {
+  text-decoration: underline;
+}
+
+.attachment-sub {
+  font-size: 0.8rem;
+}
+
+.attachment-archive-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.3rem;
+  cursor: pointer;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.1s ease-in-out;
+}
+
+.attachment-card:hover .attachment-archive-btn {
+  opacity: 1;
+}
+
+.attachment-archive-btn:hover {
+  color: var(--error-fg);
+  border-color: var(--error-border);
+  background: var(--error-bg);
+}
+
+.attachment-archived {
+  opacity: 0.65;
+}
+
+.attachment-archived-badge {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  background: var(--info-bg);
+  color: var(--info-fg);
+  border: 1px solid var(--info-border);
+  border-radius: 0.3rem;
+}
+
+/* ---------- Stage 9: dropzone ---------- */
+.dropzone {
+  position: relative;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 0.8rem;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dropzone-active {
+  border-color: var(--accent);
+  background: var(--hover);
+}
+
+.dropzone-disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.dropzone-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dropzone-cta {
+  font-size: 0.9rem;
+  color: var(--fg);
+}
+
+.dropzone-hint {
+  font-size: 0.8rem;
+}
+
+.dropzone-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.dropzone-pending-list:empty {
+  display: none;
+}
+
+.dropzone-pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dropzone-pending-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--hover);
+  border-radius: calc(var(--radius) - 0.1rem);
+  font-size: 0.85rem;
+}
+
+.dropzone-pending-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropzone-pending-size {
+  font-size: 0.75rem;
+}
+
+.dropzone-pending-remove {
+  background: transparent;
+  border: 0;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0 0.3rem;
+}
+
+.dropzone-pending-remove:hover {
+  color: var(--error-fg);
+}
+
+.dropzone-progress {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.dropzone-error {
+  font-size: 0.85rem;
+  color: var(--error-fg);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  border-radius: calc(var(--radius) - 0.1rem);
+  padding: 0.3rem 0.5rem;
+}

@@ -1,12 +1,17 @@
 import express from 'express';
 import { createRequireProjectRole } from '../middleware/requireProjectRole.js';
 import * as issues from '../services/issues.js';
+import * as attachments from '../services/attachments.js';
+import * as issuesDb from '../db/issues.js';
+import { createIssueAttachmentsRouter } from './attachments.js';
 
 export function createIssuesRouter({ db }) {
   const router = express.Router({ mergeParams: true });
   const requireProjectViewer = createRequireProjectRole({ db, minimum: 'viewer' });
 
   router.use(requireProjectViewer);
+
+  router.use('/:number/attachments', createIssueAttachmentsRouter({ db }));
 
   router.get('/', (req, res, next) => {
     try {
@@ -37,7 +42,9 @@ export function createIssuesRouter({ db }) {
       const number = parseNumber(req, res);
       if (number == null) return;
       const result = issues.getIssue(db, req.project.id, number);
-      res.json(result);
+      const issueRow = issuesDb.getByNumber(db, req.project.id, number);
+      const atts = issueRow ? attachments.listAttachmentsForIssue(db, issueRow.id) : [];
+      res.json({ ...result, attachments: atts });
     } catch (err) {
       next(err);
     }

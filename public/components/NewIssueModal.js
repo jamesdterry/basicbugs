@@ -1,7 +1,8 @@
 import { h } from '../lib/state.js';
 import { openModal } from './Modal.js';
-import { postJson } from '../lib/api.js';
+import { postJson, postForm } from '../lib/api.js';
 import { showToast } from './Toast.js';
+import { AttachmentDropzone } from './AttachmentDropzone.js';
 import {
   makeNameInput,
   makeDescriptionInput,
@@ -46,6 +47,12 @@ export function openNewIssueModal({ project, metadata, members, role, onCreated 
 
   const errorEl = h('p', { class: 'modal-error muted' });
 
+  const dropzone = AttachmentDropzone({
+    mode: 'pending',
+    label: 'Attach files (optional)',
+    onError: (msg) => showToast(msg, 'error'),
+  });
+
   const fieldRow = (label, control) =>
     h(
       'label',
@@ -63,6 +70,7 @@ export function openNewIssueModal({ project, metadata, members, role, onCreated 
     categorySelect ? fieldRow('Category', categorySelect) : null,
     prioritySelect ? fieldRow('Priority', prioritySelect) : null,
     assigneeSelect ? fieldRow('Assignee', assigneeSelect) : null,
+    fieldRow('Attachments', dropzone),
     errorEl,
   );
 
@@ -93,6 +101,26 @@ export function openNewIssueModal({ project, metadata, members, role, onCreated 
 
     try {
       const result = await postJson(`/api/projects/${project.id}/issues`, payload);
+      const pendingFiles = dropzone.getPending?.() ?? [];
+      let attachmentFailures = 0;
+      for (const file of pendingFiles) {
+        const fd = new FormData();
+        fd.append('file', file, file.name);
+        try {
+          await postForm(
+            `/api/projects/${project.id}/issues/${result.issue.number}/attachments`,
+            fd,
+          );
+        } catch {
+          attachmentFailures += 1;
+        }
+      }
+      if (attachmentFailures > 0) {
+        showToast(
+          `Issue created; ${attachmentFailures} attachment(s) failed — retry from the issue page.`,
+          'error',
+        );
+      }
       closeFn();
       if (typeof onCreated === 'function') onCreated(result.issue);
       else if (result.issue) {

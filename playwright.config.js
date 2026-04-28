@@ -33,7 +33,7 @@ export default defineConfig({
     },
     {
       name: 'authed',
-      testMatch: /(smoke|issue-detail|profile|projectSettings)\.spec\.js/,
+      testMatch: /(smoke|issue-detail|profile|projectSettings|attachments)\.spec\.js/,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
     },
