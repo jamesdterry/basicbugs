@@ -18,6 +18,7 @@ const NOTE_MAX = 5_000;
 const COMMENT_MAX = 10_000;
 const LIMIT_MAX = 100;
 const LIMIT_DEFAULT = 50;
+const SEARCH_MAX = 200;
 
 const ROLE_RANK = Object.freeze({ viewer: 1, user: 2, developer: 3 });
 
@@ -481,6 +482,14 @@ function parseFilters(db, projectId, query) {
 
   const cursor = decodeCursor(query.cursor);
 
+  let q = null;
+  if (query.q != null) {
+    if (typeof query.q !== 'string') throw new IssueError('invalid_filter');
+    const trimmed = query.q.trim();
+    if (trimmed.length > SEARCH_MAX) throw new IssueError('invalid_filter');
+    if (trimmed.length > 0) q = trimmed;
+  }
+
   return {
     statusIds,
     categoryIds,
@@ -488,6 +497,7 @@ function parseFilters(db, projectId, query) {
     assigneeIds,
     includeUnassigned,
     includeArchived,
+    q,
     sort,
     limit,
     cursor,

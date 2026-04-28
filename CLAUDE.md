@@ -7,7 +7,8 @@ Open-source bug tracker aimed at consultants. Vanilla JS/CSS/HTML on a Node + Ex
 - **Server:** Node LTS, Express, `better-sqlite3`, bcrypt, nodemailer, helmet.
 - **Client:** hand-rolled vanilla ESM modules (`<script type="module">`), single `app.css`. **No build step.**
 - **Layout:** `server/{routes,services,db,middleware}`, `public/{lib,components,views}/`, `test/`, `scripts/`.
-- **Frontend modules:** `public/lib/state.js` (event emitter + `h()` DOM helper), `public/lib/router.js` (hash router; add routes to its table, not ad-hoc), `public/lib/api.js` (`getJson`/`postJson`/etc — 401 auto-redirects to `/login.html`). Components are DOM-returning functions in `public/components/`; route views go in `public/views/`.
+- **Frontend modules:** `public/lib/state.js` (event emitter + `h()` DOM helper), `public/lib/router.js` (hash router; add routes to its table, not ad-hoc; query string is parsed into `params.query`), `public/lib/api.js` (`getJson`/`postJson`/etc — 401 auto-redirects to `/login.html`; `qs(obj)` builds a query string), `public/lib/filters.js` (issue-list filter state + URL/`localStorage` round-trip), `public/lib/debounce.js`. Components are DOM-returning functions in `public/components/`; route views go in `public/views/`.
+- **`localStorage`:** namespace user-scoped keys as `basicbugs.<feature>.${userId}.${projectId}` (see `filters.js`).
 - **CSP:** helmet defaults block inline scripts/styles. No inline event handlers (`onclick=`), no inline `style=`, no `eval`/`new Function`. Bind events with `addEventListener` (or the `on*` keys in `h()`).
 - **App shell auth:** `/` and `/index.html` are gated by `loadSessionFromCookie` (exported from `middleware/requireUser.js`); other static assets are public.
 - **Migrations:** append-only `server/db/migrations/*.sql`; never edit a shipped migration.

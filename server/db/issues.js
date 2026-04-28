@@ -128,6 +128,10 @@ function cursorClause(sort) {
   }
 }
 
+function escapeLike(s) {
+  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+}
+
 function cursorValues(sort, row) {
   switch (sort) {
     case 'created_desc':
@@ -150,6 +154,7 @@ function cursorValues(sort, row) {
  *   statusIds?, categoryIds?, priorityIds?, assigneeIds? — arrays of ints
  *   includeUnassigned? — boolean; combined with assigneeIds with OR
  *   includeArchived?   — boolean (default false)
+ *   q?                 — non-empty trimmed string; matches name via LIKE
  *   sort?              — one of SORTS, default 'updated_desc'
  *   limit?             — integer 1..100, default 50
  *   cursor?            — { primary, id } from a previous page's nextCursor
@@ -164,6 +169,7 @@ export function list(db, projectId, opts = {}) {
     assigneeIds = null,
     includeUnassigned = false,
     includeArchived = false,
+    q = null,
     sort = 'updated_desc',
     limit = 50,
     cursor = null,
@@ -198,6 +204,11 @@ export function list(db, projectId, opts = {}) {
     params.push(...assigneeIds);
   } else if (includeUnassigned) {
     where.push('assigned_to IS NULL');
+  }
+
+  if (typeof q === 'string' && q.length > 0) {
+    where.push(`name LIKE ? ESCAPE '\\'`);
+    params.push(`%${escapeLike(q)}%`);
   }
 
   if (cursor && cursor.primary != null && cursor.id != null) {

@@ -18,12 +18,26 @@ const ROUTES = [
 
 export function parseHash(rawHash) {
   const stripped = (rawHash ?? '').replace(/^#\/?/, '');
-  const parts = stripped === '' ? [] : stripped.split('/').filter(Boolean);
+  const qIndex = stripped.indexOf('?');
+  const pathPart = qIndex === -1 ? stripped : stripped.slice(0, qIndex);
+  const queryString = qIndex === -1 ? '' : stripped.slice(qIndex + 1);
+  const query = parseQuery(queryString);
+  const parts = pathPart === '' ? [] : pathPart.split('/').filter(Boolean);
   for (const route of ROUTES) {
     const result = route.match(parts);
-    if (result) return { name: route.name, params: result.params };
+    if (result) return { name: route.name, params: { ...result.params, query } };
   }
-  return { name: 'notFound', params: {} };
+  return { name: 'notFound', params: { query } };
+}
+
+function parseQuery(qs) {
+  const out = {};
+  if (!qs) return out;
+  const params = new URLSearchParams(qs);
+  for (const [key, value] of params.entries()) {
+    out[key] = value;
+  }
+  return out;
 }
 
 export function startRouter(handlers, mountEl) {

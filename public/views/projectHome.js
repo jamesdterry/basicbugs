@@ -1,7 +1,10 @@
 import { h, state } from '../lib/state.js';
+import { getJson } from '../lib/api.js';
+import { IssueList } from './issueList.js';
+import { showToast } from '../components/Toast.js';
 
-export function projectHome({ id }) {
-  const numericId = Number.parseInt(id, 10);
+export function projectHome(params) {
+  const numericId = Number.parseInt(params.id, 10);
   const project = state.projects.find((p) => p.id === numericId);
 
   if (!project) {
@@ -18,7 +21,13 @@ export function projectHome({ id }) {
     );
   }
 
-  return h(
+  const content = h(
+    'div',
+    { class: 'issue-list-loading muted' },
+    'Loading project…',
+  );
+
+  const view = h(
     'section',
     { class: 'view view-project' },
     h(
@@ -28,15 +37,35 @@ export function projectHome({ id }) {
       h('h1', {}, project.name),
       project.role ? h('span', { class: 'role-badge' }, project.role) : null,
     ),
-    h(
-      'div',
-      { class: 'placeholder-card' },
-      h('p', {}, 'Issues land in Stage 6.'),
-      h(
-        'p',
-        { class: 'muted' },
-        'This is the project home placeholder. The filtered issue list, search, and pagination arrive in the next stage.',
-      ),
-    ),
+    content,
   );
+
+  loadDetail(numericId).then((detail) => {
+    if (!detail) return;
+    const members = (detail.members ?? []).map((m) => ({
+      id: m.user_id ?? m.id,
+      name: m.name,
+      email: m.email,
+    }));
+    content.replaceWith(
+      IssueList({
+        project: detail.project,
+        metadata: detail.metadata,
+        members,
+        currentUserId: state.currentUser?.id,
+        initialQuery: params.query ?? {},
+      }),
+    );
+  });
+
+  return view;
+}
+
+async function loadDetail(projectId) {
+  try {
+    return await getJson(`/api/projects/${projectId}`);
+  } catch (err) {
+    showToast(`Could not load project: ${err?.message ?? 'unknown error'}`, 'error');
+    return null;
+  }
 }

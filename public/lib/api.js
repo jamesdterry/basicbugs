@@ -32,3 +32,20 @@ export const getJson = (url) => request('GET', url);
 export const postJson = (url, body = {}) => request('POST', url, body);
 export const patchJson = (url, body = {}) => request('PATCH', url, body);
 export const deleteJson = (url) => request('DELETE', url);
+
+export function qs(obj) {
+  if (!obj) return '';
+  const parts = [];
+  for (const [key, value] of Object.entries(obj)) {
+    if (value == null) continue;
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value.join(','))}`);
+    } else {
+      const s = String(value);
+      if (s === '') continue;
+      parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(s)}`);
+    }
+  }
+  return parts.length === 0 ? '' : '?' + parts.join('&');
+}

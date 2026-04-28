@@ -190,6 +190,78 @@ describe('GET /api/projects/:id/issues — list + filters', () => {
     const r = await eve.get(`/api/projects/${project.id}/issues`);
     expect(r.status).toBe(404);
   });
+
+  it('q filter matches by name substring (case-insensitive ASCII)', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'Login bug' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'logout flow' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'Signup race' });
+
+    const hits = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=${encodeURIComponent('log')}`,
+    );
+    expect(hits.status).toBe(200);
+    expect(hits.body.items.map((i) => i.name).sort()).toEqual(['Login bug', 'logout flow']);
+
+    const upper = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=${encodeURIComponent('LOGIN')}`,
+    );
+    expect(upper.body.items.map((i) => i.name)).toEqual(['Login bug']);
+  });
+
+  it('q treats LIKE wildcards literally', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'plain' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'pct 50%' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'under_score' });
+
+    const pct = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=${encodeURIComponent('%')}`,
+    );
+    expect(pct.body.items.map((i) => i.name)).toEqual(['pct 50%']);
+
+    const usc = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=${encodeURIComponent('_')}`,
+    );
+    expect(usc.body.items.map((i) => i.name)).toEqual(['under_score']);
+  });
+
+  it('q rejects strings longer than the limit', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    const tooLong = 'a'.repeat(201);
+    const r = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=${encodeURIComponent(tooLong)}`,
+    );
+    expect(r.status).toBe(400);
+    expect(r.body.error).toBe('invalid_filter');
+  });
+
+  it('q combines with status filter', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'foo open' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'foo closed' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'bar' });
+
+    const allStatuses = await aliceAgent.get(`/api/projects/${project.id}/metadata/statuses`);
+    const closed = allStatuses.body.items.find((s) => s.is_closed);
+    await aliceAgent
+      .patch(`/api/projects/${project.id}/issues/2`)
+      .send({ patch: { statusId: closed.id } });
+
+    const r = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=foo&status=${closed.id}&archived=1`,
+    );
+    expect(r.body.items.map((i) => i.name)).toEqual(['foo closed']);
+  });
+
+  it('blank or whitespace q is ignored', async () => {
+    const { aliceAgent, project } = await setupProjectWith('developer');
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'one' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'two' });
+
+    const r = await aliceAgent.get(`/api/projects/${project.id}/issues?q=${encodeURIComponent('   ')}`);
+    expect(r.body.items).toHaveLength(2);
+  });
 });
 
 describe('archive routes', () => {

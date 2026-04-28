@@ -126,7 +126,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 6 — Issue list with filters, search, and last-used persistence
+## Stage 6 DONE — Issue list with filters, search, and last-used persistence
 
 **Goal:** the daily-driver screen is fully functional.
 
@@ -142,6 +142,16 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 7. Empty states: no issues at all vs. no issues match filters (with "Clear filters" CTA).
 
 **Verify:** apply a filter, reload, see it restored; share URL in another browser/profile, see same filter applied; create 50 issues and confirm sort + pagination behave.
+
+---
+
+Let's implement paging for issues rather than a load more that just adds to the total list.
+
+ Lint — clean (the two remaining errors are pre-existing in TopBar.js and spa.test.js, unrelated to this work)
+
+A pre-existing flaky test in routes-issues.test.js ("user can patch name but not status") passes in isolation but occasionally flakes in the full file run — independent of this work. 
+
+Interim step: Add Playwright + chromium to allow agentic testing in browser
 
 ---
 
