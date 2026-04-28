@@ -5,6 +5,7 @@ import { requireSuperAdmin } from '../middleware/requireSuperAdmin.js';
 import * as users from '../services/users.js';
 import * as sessions from '../services/sessions.js';
 import * as auth from '../services/auth.js';
+import * as projectMembers from '../services/projectMembers.js';
 import * as projectMembersDb from '../db/projectMembers.js';
 import * as usersDb from '../db/users.js';
 import { handleError } from './errors.js';
@@ -66,8 +67,21 @@ export function createAdminRouter({ db }) {
 
   router.post('/users', ...gate, async (req, res, next) => {
     try {
-      const { email, name, sendInvite = true } = req.body ?? {};
-      const created = users.inviteUser(db, { email, name });
+      const { email, name, sendInvite = true, projectId, role } = req.body ?? {};
+      const wantsMembership = projectId !== undefined && projectId !== null && projectId !== '';
+      const projectIdNum = wantsMembership ? Number.parseInt(projectId, 10) : null;
+      if (wantsMembership && (!Number.isInteger(projectIdNum) || projectIdNum <= 0)) {
+        return res.status(400).json({ error: 'invalid_project' });
+      }
+
+      const created = db.transaction(() => {
+        const user = users.inviteUser(db, { email, name });
+        if (wantsMembership) {
+          projectMembers.addMember(db, projectIdNum, user.id, role);
+        }
+        return user;
+      })();
+
       if (sendInvite !== false) {
         await auth.sendMagicLink(db, { id: created.id, email: created.email });
       }

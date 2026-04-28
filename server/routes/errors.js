@@ -17,6 +17,7 @@ export const STATUS_FOR_CODE = Object.freeze({
   invalid_priority: 400,
   invalid_assignee: 400,
   invalid_email: 400,
+  invalid_project: 400,
   invalid_source: 400,
   password_too_short: 400,
   wrong_password: 400,

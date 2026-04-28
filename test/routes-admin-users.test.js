@@ -129,6 +129,43 @@ describe('POST /api/admin/users (invite)', () => {
     const tokens = db.prepare("SELECT * FROM auth_tokens WHERE purpose = 'magic_link'").all();
     expect(tokens).toHaveLength(0);
   });
+
+  it('adds the new user to a project with a role atomically', async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const proj = (await sa.post('/api/admin/projects').send({ name: 'Acme' })).body.project;
+
+    const res = await sa.post('/api/admin/users').send({
+      email: 'charlie@x.com',
+      name: 'Charlie',
+      projectId: proj.id,
+      role: 'developer',
+      sendInvite: false,
+    });
+    expect(res.status).toBe(201);
+
+    const created = usersDb.getByEmail(db, 'charlie@x.com');
+    const member = db
+      .prepare('SELECT role FROM project_members WHERE project_id = ? AND user_id = ?')
+      .get(proj.id, created.id);
+    expect(member?.role).toBe('developer');
+  });
+
+  it('rejects an invalid role on invite, leaving no user behind', async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const proj = (await sa.post('/api/admin/projects').send({ name: 'Acme' })).body.project;
+
+    const res = await sa.post('/api/admin/users').send({
+      email: 'badrole@x.com',
+      projectId: proj.id,
+      role: 'wat',
+      sendInvite: false,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_role');
+    expect(usersDb.getByEmail(db, 'badrole@x.com')).toBeNull();
+  });
 });
 
 describe('PATCH /api/admin/users/:id', () => {

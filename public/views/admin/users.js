@@ -224,7 +224,14 @@ function openEditNameModal(user, reload) {
   queueMicrotask(() => input.focus());
 }
 
-function openInviteModal(reload) {
+async function openInviteModal(reload) {
+  let projects = [];
+  try {
+    projects = (await getJson('/api/projects?includeArchived=0')).projects ?? [];
+  } catch {
+    /* invite still works without project list */
+  }
+
   const emailInput = h('input', {
     type: 'email',
     class: 'field-input',
@@ -237,6 +244,25 @@ function openInviteModal(reload) {
     placeholder: 'Optional',
     'aria-label': 'Name (optional)',
   });
+  const projectSelect = h(
+    'select',
+    { class: 'field-input', 'aria-label': 'Project' },
+    h('option', { value: '' }, 'No project — add later'),
+    ...projects
+      .filter((p) => !p.archived_at)
+      .map((p) => h('option', { value: String(p.id) }, p.name)),
+  );
+  const roleSelect = h(
+    'select',
+    { class: 'field-input', 'aria-label': 'Role', disabled: true },
+    h('option', { value: 'viewer' }, 'viewer'),
+    h('option', { value: 'user', selected: true }, 'user'),
+    h('option', { value: 'developer' }, 'developer'),
+  );
+  projectSelect.addEventListener('change', () => {
+    roleSelect.disabled = !projectSelect.value;
+  });
+
   openModal({
     title: 'Invite user',
     body: h(
@@ -246,6 +272,10 @@ function openInviteModal(reload) {
       emailInput,
       h('label', {}, 'Name (optional)'),
       nameInput,
+      h('label', {}, 'Project'),
+      projectSelect,
+      h('label', {}, 'Role'),
+      roleSelect,
       h(
         'p',
         { class: 'muted' },
@@ -264,8 +294,14 @@ function openInviteModal(reload) {
             showToast('Email is required', 'error');
             return;
           }
+          const projectId = projectSelect.value ? Number.parseInt(projectSelect.value, 10) : null;
+          const role = projectId ? roleSelect.value : null;
           try {
-            await postJson('/api/admin/users', { email, name });
+            await postJson('/api/admin/users', {
+              email,
+              name,
+              ...(projectId ? { projectId, role } : {}),
+            });
             close();
             showToast('Invite sent', 'info');
             reload();
