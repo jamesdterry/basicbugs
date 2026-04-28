@@ -89,7 +89,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 ---
 
-## Stage 4 — Issues (create, edit, history) & permissions matrix
+## Stage 4 DONE — Issues (create, edit, history) & permissions matrix
 
 **Goal:** developers/users/viewers can interact with issues at the right level; every save produces a correct history event.
 

@@ -6,29 +6,8 @@ import * as projects from '../services/projects.js';
 import * as projectMembers from '../services/projectMembers.js';
 import * as metadata from '../services/metadata.js';
 import * as metadataDb from '../db/metadata.js';
-
-const STATUS_FOR_CODE = {
-  invalid_name: 400,
-  invalid_role: 400,
-  invalid_kind: 404,
-  invalid_sort_order: 400,
-  not_found: 404,
-  project_not_found: 404,
-  project_archived: 409,
-  user_not_found: 404,
-  not_a_member: 404,
-  duplicate_member: 409,
-  duplicate_name: 409,
-  cannot_archive_default: 409,
-  cannot_archive_only_remaining: 409,
-  cannot_default_archived: 409,
-};
-
-function handleError(res, next, err) {
-  const status = STATUS_FOR_CODE[err?.code];
-  if (status) return res.status(status).json({ error: err.code });
-  return next(err);
-}
+import { createIssuesRouter } from './issues.js';
+import { handleError } from './errors.js';
 
 export function createProjectsRouter({ db }) {
   const router = express.Router();
@@ -231,6 +210,14 @@ export function createProjectsRouter({ db }) {
       }
     },
   );
+
+  // ---------- Issues ----------
+  router.use('/projects/:id/issues', createIssuesRouter({ db }));
+
+  // Map service errors that propagate via next(err) from sub-routers.
+  router.use((err, _req, res, next) => {
+    handleError(res, next, err);
+  });
 
   return router;
 }
