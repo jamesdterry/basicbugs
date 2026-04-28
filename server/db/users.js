@@ -28,3 +28,21 @@ export function setName(db, userId, name) {
 export function setDisabled(db, userId, isDisabled) {
   db.prepare('UPDATE users SET is_disabled = ? WHERE id = ?').run(isDisabled ? 1 : 0, userId);
 }
+
+export function list(db, { search = '', includeDisabled = true } = {}) {
+  const term = (search || '').trim();
+  const where = [];
+  const params = [];
+  if (!includeDisabled) where.push('is_disabled = 0');
+  if (term) {
+    where.push("(email LIKE ? ESCAPE '\\' OR (name IS NOT NULL AND name LIKE ? ESCAPE '\\'))");
+    const like = `%${term.replace(/[\\%_]/g, '\\$&')}%`;
+    params.push(like, like);
+  }
+  const sql =
+    'SELECT id, email, name, created_at, last_login_at, is_disabled, password_hash IS NOT NULL AS has_password' +
+    ' FROM users' +
+    (where.length ? ` WHERE ${where.join(' AND ')}` : '') +
+    " ORDER BY COALESCE(NULLIF(name, ''), email) COLLATE NOCASE";
+  return db.prepare(sql).all(...params);
+}

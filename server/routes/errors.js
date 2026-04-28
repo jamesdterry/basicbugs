@@ -16,6 +16,10 @@ export const STATUS_FOR_CODE = Object.freeze({
   invalid_category: 400,
   invalid_priority: 400,
   invalid_assignee: 400,
+  invalid_email: 400,
+  invalid_source: 400,
+  password_too_short: 400,
+  wrong_password: 400,
 
   // Auth
   forbidden: 403,
@@ -31,6 +35,8 @@ export const STATUS_FOR_CODE = Object.freeze({
   project_archived: 409,
   duplicate_member: 409,
   duplicate_name: 409,
+  duplicate_email: 409,
+  user_disabled: 409,
   cannot_archive_default: 409,
   cannot_archive_only_remaining: 409,
   cannot_default_archived: 409,

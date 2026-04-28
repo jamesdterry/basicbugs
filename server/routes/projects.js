@@ -211,6 +211,50 @@ export function createProjectsRouter({ db }) {
     },
   );
 
+  router.post(
+    '/admin/projects/:id/metadata/:kind/reset',
+    requireSuperAdmin,
+    (req, res, next) => {
+      try {
+        const kind = readKind(req, res);
+        if (!kind) return;
+        const projectId = Number.parseInt(req.params.id, 10);
+        if (!Number.isInteger(projectId) || projectId <= 0) {
+          return res.status(404).json({ error: 'not_found' });
+        }
+        metadata.resetToDefaults(db, projectId, kind);
+        const items = metadata.listKind(db, kind, projectId, { includeArchived: false });
+        res.json({ items });
+      } catch (err) {
+        handleError(res, next, err);
+      }
+    },
+  );
+
+  router.post(
+    '/admin/projects/:id/metadata/:kind/copy-from/:srcId',
+    requireSuperAdmin,
+    (req, res, next) => {
+      try {
+        const kind = readKind(req, res);
+        if (!kind) return;
+        const projectId = Number.parseInt(req.params.id, 10);
+        const srcId = Number.parseInt(req.params.srcId, 10);
+        if (!Number.isInteger(projectId) || projectId <= 0) {
+          return res.status(404).json({ error: 'not_found' });
+        }
+        if (!Number.isInteger(srcId) || srcId <= 0) {
+          return res.status(400).json({ error: 'invalid_source' });
+        }
+        const inserted = metadata.copyFromProject(db, srcId, projectId, kind);
+        const items = metadata.listKind(db, kind, projectId, { includeArchived: false });
+        res.json({ inserted, items });
+      } catch (err) {
+        handleError(res, next, err);
+      }
+    },
+  );
+
   // ---------- Issues ----------
   router.use('/projects/:id/issues', createIssuesRouter({ db }));
 

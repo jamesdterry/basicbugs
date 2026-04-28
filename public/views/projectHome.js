@@ -27,6 +27,11 @@ export function projectHome(params) {
     'Loading project…',
   );
 
+  const canSeeSettings =
+    project.role === 'super_admin' ||
+    project.role === 'developer' ||
+    state.currentUser?.isSuperAdmin;
+
   const view = h(
     'section',
     { class: 'view view-project' },
@@ -36,6 +41,13 @@ export function projectHome(params) {
       h('p', { class: 'view-eyebrow' }, h('a', { href: '#/' }, '← Projects')),
       h('h1', {}, project.name),
       project.role ? h('span', { class: 'role-badge' }, project.role) : null,
+      canSeeSettings
+        ? h(
+            'div',
+            { class: 'view-header-actions' },
+            h('a', { class: 'icon-btn', href: `#/projects/${project.id}/settings` }, 'Settings'),
+          )
+        : null,
     ),
     content,
   );

@@ -1,6 +1,13 @@
 const ROUTES = [
   { name: 'home', match: (parts) => parts.length === 0 && { params: {} } },
   {
+    name: 'projectSettings',
+    match: (parts) =>
+      parts.length === 3 &&
+      parts[0] === 'projects' &&
+      parts[2] === 'settings' && { params: { id: parts[1] } },
+  },
+  {
     name: 'projectHome',
     match: (parts) =>
       parts.length === 2 && parts[0] === 'projects' && { params: { id: parts[1] } },
@@ -11,6 +18,33 @@ const ROUTES = [
       parts.length === 4 &&
       parts[0] === 'projects' &&
       parts[2] === 'issues' && { params: { id: parts[1], number: parts[3] } },
+  },
+  {
+    name: 'adminProjectMetadata',
+    match: (parts) =>
+      parts.length === 4 &&
+      parts[0] === 'admin' &&
+      parts[1] === 'projects' &&
+      parts[3] === 'metadata' && { params: { id: parts[2] } },
+  },
+  {
+    name: 'adminUsers',
+    match: (parts) => parts.length === 2 && parts[0] === 'admin' && parts[1] === 'users' && { params: {} },
+  },
+  {
+    name: 'adminProjects',
+    match: (parts) =>
+      parts.length === 2 && parts[0] === 'admin' && parts[1] === 'projects' && { params: {} },
+  },
+  {
+    name: 'adminSessions',
+    match: (parts) =>
+      parts.length === 2 && parts[0] === 'admin' && parts[1] === 'sessions' && { params: {} },
+  },
+  {
+    name: 'adminSystem',
+    match: (parts) =>
+      parts.length === 2 && parts[0] === 'admin' && parts[1] === 'system' && { params: {} },
   },
   { name: 'admin', match: (parts) => parts[0] === 'admin' && { params: {} } },
   { name: 'me', match: (parts) => parts.length === 1 && parts[0] === 'me' && { params: {} } },

@@ -1,19 +1,35 @@
 import { state, set, h } from './lib/state.js';
-import { startRouter, parseHash } from './lib/router.js';
+import { startRouter, parseHash, navigate } from './lib/router.js';
 import { getJson } from './lib/api.js';
 import { TopBar } from './components/TopBar.js';
 import { showToast } from './components/Toast.js';
 import { ProjectPicker } from './components/ProjectPicker.js';
 import { projectHome } from './views/projectHome.js';
 import { issueDetail } from './views/issueDetail.js';
-import { notFound, placeholder } from './views/notFound.js';
+import { projectSettings } from './views/projectSettings.js';
+import { meView } from './views/me.js';
+import { adminUsersView } from './views/admin/users.js';
+import { adminProjectsView } from './views/admin/projects.js';
+import { adminProjectMetadataView } from './views/admin/projectMetadata.js';
+import { adminSessionsView } from './views/admin/sessions.js';
+import { adminSystemView } from './views/admin/system.js';
+import { notFound } from './views/notFound.js';
 
 const handlers = {
   home: () => ProjectPicker({ projects: state.projects }),
   projectHome,
+  projectSettings,
   issueDetail,
-  admin: placeholder('Admin', 'The admin surfaces land in Stage 8.'),
-  me: placeholder('Profile', 'The profile screen lands in Stage 8.'),
+  admin: () => {
+    navigate('#/admin/users');
+    return null;
+  },
+  adminUsers: adminUsersView,
+  adminProjects: adminProjectsView,
+  adminProjectMetadata: adminProjectMetadataView,
+  adminSessions: adminSessionsView,
+  adminSystem: adminSystemView,
+  me: meView,
   notFound,
 };
 

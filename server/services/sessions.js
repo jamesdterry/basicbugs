@@ -46,4 +46,24 @@ export function revokeAllForUser(db, userId) {
   sessionsDb.deleteAllForUser(db, userId);
 }
 
+export function revokeOthersForUser(db, userId, exceptSessionId) {
+  if (!exceptSessionId) {
+    sessionsDb.deleteAllForUser(db, userId);
+    return;
+  }
+  sessionsDb.deleteAllForUserExcept(db, userId, exceptSessionId);
+}
+
+export function listAll(db, opts = {}) {
+  return sessionsDb.listAll(db, opts);
+}
+
+export function listForUser(db, userId) {
+  return sessionsDb.listForUser(db, userId);
+}
+
+export function getById(db, sessionId) {
+  return sessionsDb.getById(db, sessionId);
+}
+
 export const TTL_MS = SESSION_TTL_MS;

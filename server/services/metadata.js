@@ -149,3 +149,71 @@ export function unarchiveItem(db, kind, projectId, id) {
   if (!row.archived_at) return;
   metadataDb.unarchive(db, kind, id);
 }
+
+const DEFAULTS_BY_KIND = Object.freeze({
+  statuses: DEFAULT_STATUSES,
+  categories: DEFAULT_CATEGORIES,
+  priorities: DEFAULT_PRIORITIES,
+});
+
+export function resetToDefaults(db, projectId, kind) {
+  if (!metadataDb.isValidKind(kind)) throw new MetadataError('invalid_kind');
+  const defaults = DEFAULTS_BY_KIND[kind];
+  return db.transaction(() => {
+    const existing = metadataDb.list(db, kind, projectId, { includeArchived: true });
+    const byName = new Map(existing.map((row) => [row.name.toLowerCase(), row]));
+
+    for (const def of defaults) {
+      const found = byName.get(def.name.toLowerCase());
+      if (!found) {
+        metadataDb.create(db, kind, {
+          projectId,
+          name: def.name,
+          sortOrder: def.sort_order,
+          isDefault: 0,
+          isClosed: kind === 'statuses' ? def.is_closed : 0,
+        });
+      } else if (found.archived_at) {
+        metadataDb.unarchive(db, kind, found.id);
+      }
+    }
+
+    if (!metadataDb.getDefault(db, kind, projectId)) {
+      const specDefault = defaults.find((d) => d.is_default);
+      if (specDefault) {
+        const restored = metadataDb
+          .list(db, kind, projectId, { includeArchived: false })
+          .find((row) => row.name.toLowerCase() === specDefault.name.toLowerCase());
+        if (restored) {
+          metadataDb.clearDefault(db, kind, projectId);
+          metadataDb.setDefault(db, kind, restored.id);
+        }
+      }
+    }
+  })();
+}
+
+export function copyFromProject(db, srcProjectId, dstProjectId, kind) {
+  if (!metadataDb.isValidKind(kind)) throw new MetadataError('invalid_kind');
+  if (srcProjectId === dstProjectId) throw new MetadataError('invalid_source');
+  return db.transaction(() => {
+    const srcItems = metadataDb.list(db, kind, srcProjectId, { includeArchived: false });
+    const dstItems = metadataDb.list(db, kind, dstProjectId, { includeArchived: true });
+    const dstNames = new Set(dstItems.map((r) => r.name.toLowerCase()));
+    let nextSort = metadataDb.maxSortOrder(db, kind, dstProjectId);
+    let inserted = 0;
+    for (const src of srcItems) {
+      if (dstNames.has(src.name.toLowerCase())) continue;
+      nextSort += 1;
+      metadataDb.create(db, kind, {
+        projectId: dstProjectId,
+        name: src.name,
+        sortOrder: nextSort,
+        isDefault: 0,
+        isClosed: kind === 'statuses' ? src.is_closed : 0,
+      });
+      inserted += 1;
+    }
+    return inserted;
+  })();
+}

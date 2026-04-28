@@ -3,14 +3,14 @@ import { config } from '../config.js';
 import * as passwords from '../services/passwords.js';
 import * as tokens from '../services/tokens.js';
 import * as sessions from '../services/sessions.js';
-import * as email from '../services/email.js';
+import * as auth from '../services/auth.js';
 import * as usersDb from '../db/users.js';
 import * as authDb from '../db/auth.js';
 import { createRequireUser, SESSION_COOKIE } from '../middleware/requireUser.js';
 import { byIp, byEmail } from '../middleware/rateLimit.js';
 
-const MAGIC_LINK_TTL_MS = 15 * 60 * 1000;
-const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
+const MAGIC_LINK_TTL_MS = auth.MAGIC_LINK_TTL_MS;
+const PASSWORD_RESET_TTL_MS = auth.PASSWORD_RESET_TTL_MS;
 const MIN_PASSWORD_LENGTH = 10;
 
 function cookieOptions() {
@@ -96,29 +96,16 @@ export function createAuthRouter({ db }) {
       if (!isValidEmail(rawEmail)) return res.json({ ok: true });
       const normalized = normalizeEmail(rawEmail);
 
-      const minted = db.transaction(() => {
+      const target = db.transaction(() => {
         let user = usersDb.getByEmail(db, normalized);
         if (!user && normalized === config.superAdminEmail) {
           user = usersDb.create(db, { email: normalized });
         }
         if (!user || user.is_disabled) return null;
-        const t = tokens.generate();
-        authDb.deleteForUser(db, user.id, 'magic_link');
-        const expiresAt = new Date(Date.now() + MAGIC_LINK_TTL_MS).toISOString();
-        authDb.insertToken(db, {
-          userId: user.id,
-          purpose: 'magic_link',
-          tokenHash: t.hash,
-          expiresAt,
-        });
-        return { raw: t.raw, to: user.email };
+        return { id: user.id, email: user.email };
       })();
 
-      if (minted) {
-        const url = `${config.baseUrl}/auth/verify?token=${encodeURIComponent(minted.raw)}`;
-        const tmpl = email.magicLinkEmail({ url });
-        await email.send({ to: minted.to, ...tmpl });
-      }
+      if (target) await auth.sendMagicLink(db, target);
       res.json({ ok: true });
     } catch (err) {
       next(err);
@@ -166,26 +153,13 @@ export function createAuthRouter({ db }) {
       if (!isValidEmail(rawEmail)) return res.json({ ok: true });
       const normalized = normalizeEmail(rawEmail);
 
-      const minted = db.transaction(() => {
+      const target = db.transaction(() => {
         const user = usersDb.getByEmail(db, normalized);
         if (!user || user.is_disabled || !user.password_hash) return null;
-        const t = tokens.generate();
-        authDb.deleteForUser(db, user.id, 'password_reset');
-        const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS).toISOString();
-        authDb.insertToken(db, {
-          userId: user.id,
-          purpose: 'password_reset',
-          tokenHash: t.hash,
-          expiresAt,
-        });
-        return { raw: t.raw, to: user.email };
+        return { id: user.id, email: user.email };
       })();
 
-      if (minted) {
-        const url = `${config.baseUrl}/reset.html?token=${encodeURIComponent(minted.raw)}`;
-        const tmpl = email.passwordResetEmail({ url });
-        await email.send({ to: minted.to, ...tmpl });
-      }
+      if (target) await auth.sendPasswordReset(db, target);
       res.json({ ok: true });
     } catch (err) {
       next(err);

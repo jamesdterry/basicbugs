@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const STORAGE_STATE = '.auth/developer.json';
+const ADMIN_STORAGE_STATE = '.auth/superadmin.json';
 const BASE_URL = 'http://localhost:8081';
 
 export default defineConfig({
@@ -21,15 +22,26 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     {
+      name: 'admin-setup',
+      testMatch: /admin\.setup\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
       name: 'unauthed',
       testMatch: /login\.spec\.js/,
       use: { ...devices['Desktop Chrome'] },
     },
     {
       name: 'authed',
-      testMatch: /(smoke|issue-detail)\.spec\.js/,
+      testMatch: /(smoke|issue-detail|profile|projectSettings)\.spec\.js/,
       use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
       dependencies: ['setup'],
+    },
+    {
+      name: 'admin',
+      testMatch: /admin-(users|projects|sessions|metadata)\.spec\.js/,
+      use: { ...devices['Desktop Chrome'], storageState: ADMIN_STORAGE_STATE },
+      dependencies: ['admin-setup'],
     },
   ],
   webServer: {

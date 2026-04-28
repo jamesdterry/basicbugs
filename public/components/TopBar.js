@@ -9,31 +9,119 @@ export function TopBar({ user }) {
     'Basic Bugs',
   );
 
-  const nameEl = h('span', { class: 'topbar-name' }, user?.name ?? user?.email ?? '');
-  const userBadge = user?.isSuperAdmin
+  const adminBadge = user?.isSuperAdmin
     ? h('span', { class: 'role-badge role-badge-admin', title: 'Super admin' }, 'admin')
     : null;
 
-  const logoutBtn = h(
+  const menu = userMenu(user);
+
+  const right = h('div', { class: 'topbar-right' }, adminBadge, menu);
+
+  return h('div', { class: 'topbar-inner' }, brand, right);
+}
+
+function userMenu(user) {
+  const wrapper = h('div', { class: 'user-menu' });
+  let open = false;
+
+  const trigger = h(
     'button',
     {
       type: 'button',
-      class: 'topbar-logout',
-      onClick: async () => {
-        logoutBtn.disabled = true;
-        try {
-          await postJson('/auth/logout', {});
-          location.href = '/login.html';
-        } catch {
-          logoutBtn.disabled = false;
-          showToast('Logout failed. Try again.', 'error');
-        }
+      class: 'user-menu-trigger',
+      'aria-haspopup': 'menu',
+      'aria-expanded': 'false',
+      onClick: () => {
+        if (open) close();
+        else show();
       },
     },
-    'Sign out',
+    h('span', { class: 'topbar-name' }, user?.name ?? user?.email ?? ''),
+    h('span', { class: 'user-menu-caret', 'aria-hidden': 'true' }, '▾'),
   );
 
-  const right = h('div', { class: 'topbar-right' }, nameEl, userBadge, logoutBtn);
+  let panel = null;
 
-  return h('div', { class: 'topbar-inner' }, brand, right);
+  function show() {
+    open = true;
+    trigger.setAttribute('aria-expanded', 'true');
+    panel = buildPanel();
+    wrapper.appendChild(panel);
+    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('keydown', onKey);
+  }
+
+  function close() {
+    open = false;
+    trigger.setAttribute('aria-expanded', 'false');
+    if (panel) {
+      panel.remove();
+      panel = null;
+    }
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onKey);
+  }
+
+  function onDocClick(e) {
+    if (!wrapper.contains(e.target)) close();
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') close();
+  }
+
+  function buildPanel() {
+    const items = [];
+    items.push(
+      h(
+        'a',
+        {
+          class: 'user-menu-item',
+          href: '#/me',
+          role: 'menuitem',
+          onClick: () => close(),
+        },
+        'Profile',
+      ),
+    );
+    if (user?.isSuperAdmin) {
+      items.push(
+        h(
+          'a',
+          {
+            class: 'user-menu-item',
+            href: '#/admin/users',
+            role: 'menuitem',
+            onClick: () => close(),
+          },
+          'Admin',
+        ),
+      );
+    }
+    items.push(h('hr', { class: 'user-menu-divider' }));
+    items.push(
+      h(
+        'button',
+        {
+          type: 'button',
+          class: 'user-menu-item',
+          role: 'menuitem',
+          onClick: async () => {
+            close();
+            try {
+              await postJson('/auth/logout', {});
+              location.href = '/login.html';
+            } catch {
+              showToast('Logout failed. Try again.', 'error');
+            }
+          },
+        },
+        'Sign out',
+      ),
+    );
+    return h('div', { class: 'user-menu-panel', role: 'menu' }, ...items);
+  }
+
+  wrapper.appendChild(trigger);
+  return wrapper;
 }

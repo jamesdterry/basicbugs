@@ -8,6 +8,8 @@ import { config } from './config.js';
 import { getDb } from './db/connection.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createProjectsRouter } from './routes/projects.js';
+import { createAdminRouter } from './routes/admin.js';
+import { createMeRouter } from './routes/me.js';
 import { loadSessionFromCookie } from './middleware/requireUser.js';
 import { logger } from './logger.js';
 
@@ -31,6 +33,8 @@ export function createApp({ db } = {}) {
   });
 
   app.use('/auth', createAuthRouter({ db: dbHandle }));
+  app.use('/api/admin', createAdminRouter({ db: dbHandle }));
+  app.use('/api/me', createMeRouter({ db: dbHandle }));
   app.use('/api', createProjectsRouter({ db: dbHandle }));
 
   function appShellGate(req, res) {

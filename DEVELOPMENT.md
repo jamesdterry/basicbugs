@@ -184,7 +184,7 @@ Lets a real browser drive the SPA end-to-end (so future agentic sessions can ver
 
 ---
 
-## Stage 8 — Project settings & super-admin interface
+## Stage 8 DONE — Project settings & super-admin interface
 
 **Goal:** the management surfaces.
 

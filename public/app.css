@@ -1036,3 +1036,430 @@ main.auth h1 {
     order: -1;
   }
 }
+
+/* ---------- Stage 8: tabs ---------- */
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 0;
+  margin-bottom: -1px;
+}
+
+.tab:hover {
+  color: var(--fg);
+}
+
+.tab.is-active {
+  color: var(--fg);
+  border-bottom-color: var(--fg);
+  font-weight: 500;
+}
+
+/* ---------- Stage 8: metadata list ---------- */
+
+.metadata-list {
+  display: grid;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.metadata-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+.metadata-row.is-dragging {
+  opacity: 0.5;
+}
+
+.metadata-row.is-drop-target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  user-select: none;
+  padding: 0 0.25rem;
+}
+
+.metadata-row[draggable='true']:active .drag-handle {
+  cursor: grabbing;
+}
+
+.metadata-name {
+  min-width: 0;
+}
+
+.rename-field {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+}
+
+.rename-display {
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: var(--radius);
+  padding: 0.2rem 0.4rem;
+  font: inherit;
+  color: inherit;
+  cursor: text;
+  text-align: left;
+  width: 100%;
+}
+
+.rename-display:hover {
+  border-color: var(--border);
+  background: var(--hover);
+}
+
+.rename-input {
+  width: 100%;
+}
+
+.metadata-badges {
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  font-size: 0.72rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--hover);
+  text-transform: lowercase;
+}
+
+.badge-default {
+  color: var(--info-fg);
+  background: var(--info-bg);
+  border-color: var(--info-border);
+}
+
+.badge-closed {
+  color: var(--muted);
+}
+
+.metadata-actions {
+  display: inline-flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.icon-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-btn.is-active {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--info-fg);
+}
+
+.icon-btn-danger {
+  color: var(--error-fg);
+  border-color: var(--error-border);
+}
+
+.icon-btn-danger:hover:not(:disabled) {
+  background: var(--error-bg);
+}
+
+.metadata-add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding-top: 0.5rem;
+}
+
+.metadata-add .field-input {
+  flex: 1;
+}
+
+/* ---------- Stage 8: danger zone ---------- */
+
+.danger-zone {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--error-border);
+  background: var(--error-bg);
+  color: var(--error-fg);
+  border-radius: var(--radius);
+}
+
+.danger-zone h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.danger-zone p {
+  margin: 0 0 0.75rem;
+}
+
+/* ---------- Stage 8: user menu (TopBar dropdown) ---------- */
+
+.user-menu {
+  position: relative;
+}
+
+.user-menu-trigger {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.user-menu-trigger:hover,
+.user-menu-trigger[aria-expanded='true'] {
+  background: var(--hover);
+}
+
+.user-menu-caret {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.user-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  min-width: 12rem;
+  padding: 0.25rem;
+  display: grid;
+  z-index: 20;
+}
+
+.user-menu-item {
+  display: block;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 2px);
+  text-decoration: none;
+}
+
+.user-menu-item:hover {
+  background: var(--hover);
+}
+
+.user-menu-divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0.25rem 0;
+}
+
+/* ---------- Stage 8: project header settings link ---------- */
+
+.view-header-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+/* ---------- Stage 8: admin shell ---------- */
+
+.admin-shell {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.admin-nav {
+  display: grid;
+  gap: 0.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem;
+}
+
+.admin-nav-item {
+  display: block;
+  padding: 0.45rem 0.75rem;
+  border-radius: calc(var(--radius) - 2px);
+  text-decoration: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.admin-nav-item:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+
+.admin-nav-item.is-active {
+  background: var(--info-bg);
+  color: var(--info-fg);
+  font-weight: 500;
+}
+
+.admin-content {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Stage 8: admin tables ---------- */
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: 0.92rem;
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--hover);
+}
+
+.admin-table-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.admin-toolbar .field-input {
+  flex: 1;
+  min-width: 12rem;
+}
+
+/* ---------- Stage 8: profile / me ---------- */
+
+.me-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.me-section h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.me-form {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 24rem;
+}
+
+.me-form label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+/* ---------- Stage 8: memberships modal ---------- */
+
+.memberships-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.membership-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.membership-row:last-child {
+  border-bottom: none;
+}
+
+.membership-name {
+  font-weight: 500;
+}
+
+.settings-note {
+  margin-top: 0.75rem;
+  color: var(--muted);
+}

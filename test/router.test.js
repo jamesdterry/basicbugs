@@ -31,9 +31,36 @@ describe('parseHash', () => {
     });
   });
 
-  it('matches #/admin and #/admin/anything to the admin route', () => {
+  it('matches admin sub-routes by name and falls back to admin shell', () => {
     expect(parseHash('#/admin')).toEqual({ name: 'admin', params: { query: {} } });
-    expect(parseHash('#/admin/users')).toEqual({ name: 'admin', params: { query: {} } });
+    expect(parseHash('#/admin/users')).toEqual({ name: 'adminUsers', params: { query: {} } });
+    expect(parseHash('#/admin/projects')).toEqual({
+      name: 'adminProjects',
+      params: { query: {} },
+    });
+    expect(parseHash('#/admin/sessions')).toEqual({
+      name: 'adminSessions',
+      params: { query: {} },
+    });
+    expect(parseHash('#/admin/system')).toEqual({
+      name: 'adminSystem',
+      params: { query: {} },
+    });
+    expect(parseHash('#/admin/projects/7/metadata')).toEqual({
+      name: 'adminProjectMetadata',
+      params: { id: '7', query: {} },
+    });
+    expect(parseHash('#/admin/anything-else')).toEqual({
+      name: 'admin',
+      params: { query: {} },
+    });
+  });
+
+  it('parses #/projects/:id/settings', () => {
+    expect(parseHash('#/projects/3/settings')).toEqual({
+      name: 'projectSettings',
+      params: { id: '3', query: {} },
+    });
   });
 
   it('parses #/me', () => {
