@@ -56,9 +56,8 @@ export function getById(db, id) {
 
 export function getByNumber(db, projectId, number) {
   return (
-    db
-      .prepare('SELECT * FROM issues WHERE project_id = ? AND number = ?')
-      .get(projectId, number) ?? null
+    db.prepare('SELECT * FROM issues WHERE project_id = ? AND number = ?').get(projectId, number) ??
+    null
   );
 }
 
@@ -114,39 +113,12 @@ function orderByClause(sort) {
   }
 }
 
-function cursorClause(sort) {
-  switch (sort) {
-    case 'created_desc':
-      return '(created_at < ? OR (created_at = ? AND id < ?))';
-    case 'number_asc':
-      return '(number > ? OR (number = ? AND id > ?))';
-    case 'number_desc':
-      return '(number < ? OR (number = ? AND id < ?))';
-    case 'updated_desc':
-    default:
-      return '(updated_at < ? OR (updated_at = ? AND id < ?))';
-  }
-}
-
 function escapeLike(s) {
   return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
 }
 
-function cursorValues(sort, row) {
-  switch (sort) {
-    case 'created_desc':
-      return { primary: row.created_at, id: row.id };
-    case 'number_asc':
-    case 'number_desc':
-      return { primary: row.number, id: row.id };
-    case 'updated_desc':
-    default:
-      return { primary: row.updated_at, id: row.id };
-  }
-}
-
 /**
- * List issues for a project with optional filters and cursor pagination.
+ * List issues for a project with optional filters and page pagination.
  *
  * @param db
  * @param projectId
@@ -157,9 +129,9 @@ function cursorValues(sort, row) {
  *   q?                 — non-empty trimmed string; matches name via LIKE
  *   sort?              — one of SORTS, default 'updated_desc'
  *   limit?             — integer 1..100, default 50
- *   cursor?            — { primary, id } from a previous page's nextCursor
+ *   page?              — 1-based page number, default 1
  *
- * Returns { items, nextCursor } where nextCursor is null when no more pages.
+ * Returns { items, page, pageSize, total, totalPages }.
  */
 export function list(db, projectId, opts = {}) {
   const {
@@ -172,11 +144,12 @@ export function list(db, projectId, opts = {}) {
     q = null,
     sort = 'updated_desc',
     limit = 50,
-    cursor = null,
+    page = 1,
   } = opts;
 
   const where = ['project_id = ?'];
   const params = [projectId];
+  const pageNumber = Number.isInteger(page) && page > 0 ? page : 1;
 
   if (!includeArchived) where.push('archived_at IS NULL');
 
@@ -195,9 +168,7 @@ export function list(db, projectId, opts = {}) {
 
   const hasAssignees = Array.isArray(assigneeIds) && assigneeIds.length > 0;
   if (hasAssignees && includeUnassigned) {
-    where.push(
-      `(assigned_to IN (${assigneeIds.map(() => '?').join(',')}) OR assigned_to IS NULL)`,
-    );
+    where.push(`(assigned_to IN (${assigneeIds.map(() => '?').join(',')}) OR assigned_to IS NULL)`);
     params.push(...assigneeIds);
   } else if (hasAssignees) {
     where.push(`assigned_to IN (${assigneeIds.map(() => '?').join(',')})`);
@@ -211,20 +182,14 @@ export function list(db, projectId, opts = {}) {
     params.push(`%${escapeLike(q)}%`);
   }
 
-  if (cursor && cursor.primary != null && cursor.id != null) {
-    where.push(cursorClause(sort));
-    params.push(cursor.primary, cursor.primary, cursor.id);
-  }
+  const whereSql = where.join(' AND ');
+  const total = db
+    .prepare(`SELECT COUNT(*) AS total FROM issues WHERE ${whereSql}`)
+    .get(...params).total;
+  const totalPages = Math.ceil(total / limit);
+  const offset = (pageNumber - 1) * limit;
+  const sql = `SELECT * FROM issues WHERE ${whereSql} ${orderByClause(sort)} LIMIT ? OFFSET ?`;
+  const items = db.prepare(sql).all(...params, limit, offset);
 
-  const sql = `SELECT * FROM issues WHERE ${where.join(' AND ')} ${orderByClause(sort)} LIMIT ?`;
-  params.push(limit + 1);
-
-  const rows = db.prepare(sql).all(...params);
-  let nextCursor = null;
-  let items = rows;
-  if (rows.length > limit) {
-    items = rows.slice(0, limit);
-    nextCursor = cursorValues(sort, items[items.length - 1]);
-  }
-  return { items, nextCursor };
+  return { items, page: pageNumber, pageSize: limit, total, totalPages };
 }

@@ -43,9 +43,7 @@ async function setupProjectWith(role) {
   const sa = await loginAsSuperAdmin(app, db);
   const project = await makeProject(sa, 'P');
   const alice = await seedUser(db, { email: 'alice@x.com', name: 'Alice' });
-  await sa
-    .post(`/api/admin/projects/${project.id}/members`)
-    .send({ userId: alice.id, role });
+  await sa.post(`/api/admin/projects/${project.id}/members`).send({ userId: alice.id, role });
   const aliceAgent = await loggedIn(app, 'alice@x.com');
   return { app, db, sa, alice, aliceAgent, project };
 }
@@ -66,18 +64,14 @@ describe('POST /api/projects/:id/issues', () => {
 
   it('viewer is forbidden', async () => {
     const { aliceAgent, project } = await setupProjectWith('viewer');
-    const r = await aliceAgent
-      .post(`/api/projects/${project.id}/issues`)
-      .send({ name: 'first' });
+    const r = await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'first' });
     expect(r.status).toBe(403);
     expect(r.body.error).toBe('forbidden');
   });
 
   it('rejects invalid name', async () => {
     const { aliceAgent, project } = await setupProjectWith('developer');
-    const r = await aliceAgent
-      .post(`/api/projects/${project.id}/issues`)
-      .send({ name: '   ' });
+    const r = await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: '   ' });
     expect(r.status).toBe(400);
     expect(r.body.error).toBe('invalid_name');
   });
@@ -88,15 +82,11 @@ describe('GET /api/projects/:id/issues/:number', () => {
 
   it('returns the issue with its history', async () => {
     const { aliceAgent, project } = await setupProjectWith('developer');
-    await aliceAgent
-      .post(`/api/projects/${project.id}/issues`)
-      .send({ name: 'i' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'i' });
     await aliceAgent
       .patch(`/api/projects/${project.id}/issues/1`)
       .send({ patch: { name: 'i2' }, note: 'rename' });
-    await aliceAgent
-      .post(`/api/projects/${project.id}/issues/1/comments`)
-      .send({ body: 'hi' });
+    await aliceAgent.post(`/api/projects/${project.id}/issues/1/comments`).send({ body: 'hi' });
 
     const r = await aliceAgent.get(`/api/projects/${project.id}/issues/1`);
     expect(r.status).toBe(200);
@@ -120,7 +110,9 @@ describe('PATCH /api/projects/:id/issues/:number', () => {
     await sa.post(`/api/projects/${project.id}/issues`).send({ name: 'i' });
 
     const bob = await seedUser(db, { email: 'bob@x.com' });
-    await sa.post(`/api/admin/projects/${project.id}/members`).send({ userId: bob.id, role: 'user' });
+    await sa
+      .post(`/api/admin/projects/${project.id}/members`)
+      .send({ userId: bob.id, role: 'user' });
     const bobAgent = await loggedIn(app, 'bob@x.com');
 
     const ok = await bobAgent
@@ -162,9 +154,7 @@ describe('GET /api/projects/:id/issues — list + filters', () => {
       .patch(`/api/projects/${project.id}/issues/2`)
       .send({ patch: { statusId: inProgress.id } });
 
-    const open = await aliceAgent.get(
-      `/api/projects/${project.id}/issues?status=${inProgress.id}`,
-    );
+    const open = await aliceAgent.get(`/api/projects/${project.id}/issues?status=${inProgress.id}`);
     expect(open.status).toBe(200);
     expect(open.body.items).toHaveLength(1);
     expect(open.body.items[0].number).toBe(2);
@@ -173,13 +163,16 @@ describe('GET /api/projects/:id/issues — list + filters', () => {
       `/api/projects/${project.id}/issues?sort=number_asc&limit=2`,
     );
     expect(page1.body.items.map((i) => i.number)).toEqual([1, 2]);
-    expect(page1.body.nextCursor).toBeTruthy();
+    expect(page1.body.page).toBe(1);
+    expect(page1.body.pageSize).toBe(2);
+    expect(page1.body.total).toBe(3);
+    expect(page1.body.totalPages).toBe(2);
 
     const page2 = await aliceAgent.get(
-      `/api/projects/${project.id}/issues?sort=number_asc&limit=2&cursor=${encodeURIComponent(page1.body.nextCursor)}`,
+      `/api/projects/${project.id}/issues?sort=number_asc&limit=2&page=2`,
     );
     expect(page2.body.items.map((i) => i.number)).toEqual([3]);
-    expect(page2.body.nextCursor).toBeNull();
+    expect(page2.body.page).toBe(2);
   });
 
   it('non-member receives 404 (mask existence)', async () => {
@@ -259,7 +252,9 @@ describe('GET /api/projects/:id/issues — list + filters', () => {
     await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'one' });
     await aliceAgent.post(`/api/projects/${project.id}/issues`).send({ name: 'two' });
 
-    const r = await aliceAgent.get(`/api/projects/${project.id}/issues?q=${encodeURIComponent('   ')}`);
+    const r = await aliceAgent.get(
+      `/api/projects/${project.id}/issues?q=${encodeURIComponent('   ')}`,
+    );
     expect(r.body.items).toHaveLength(2);
   });
 });
@@ -271,7 +266,9 @@ describe('archive routes', () => {
     const { app, db, sa, project } = await setupProjectWith('developer');
     await sa.post(`/api/projects/${project.id}/issues`).send({ name: 'i' });
     const bob = await seedUser(db, { email: 'bob@x.com' });
-    await sa.post(`/api/admin/projects/${project.id}/members`).send({ userId: bob.id, role: 'user' });
+    await sa
+      .post(`/api/admin/projects/${project.id}/members`)
+      .send({ userId: bob.id, role: 'user' });
     const bobAgent = await loggedIn(app, 'bob@x.com');
 
     const denied = await bobAgent.post(`/api/projects/${project.id}/issues/1/archive`);
@@ -294,7 +291,9 @@ describe('comments route', () => {
     const { app, db, sa, project } = await setupProjectWith('developer');
     await sa.post(`/api/projects/${project.id}/issues`).send({ name: 'i' });
     const eve = await seedUser(db, { email: 'eve@x.com' });
-    await sa.post(`/api/admin/projects/${project.id}/members`).send({ userId: eve.id, role: 'viewer' });
+    await sa
+      .post(`/api/admin/projects/${project.id}/members`)
+      .send({ userId: eve.id, role: 'viewer' });
     const eveAgent = await loggedIn(app, 'eve@x.com');
     const r = await eveAgent
       .post(`/api/projects/${project.id}/issues/1/comments`)
@@ -306,7 +305,9 @@ describe('comments route', () => {
     const { app, db, sa, project } = await setupProjectWith('developer');
     await sa.post(`/api/projects/${project.id}/issues`).send({ name: 'i' });
     const bob = await seedUser(db, { email: 'bob@x.com' });
-    await sa.post(`/api/admin/projects/${project.id}/members`).send({ userId: bob.id, role: 'user' });
+    await sa
+      .post(`/api/admin/projects/${project.id}/members`)
+      .send({ userId: bob.id, role: 'user' });
     const bobAgent = await loggedIn(app, 'bob@x.com');
     const r = await bobAgent
       .post(`/api/projects/${project.id}/issues/1/comments`)
@@ -314,8 +315,6 @@ describe('comments route', () => {
     expect(r.status).toBe(201);
 
     const detail = await sa.get(`/api/projects/${project.id}/issues/1`);
-    expect(detail.body.history.find((e) => e.kind === 'comment').note).toBe(
-      'works on my machine',
-    );
+    expect(detail.body.history.find((e) => e.kind === 'comment').note).toBe('works on my machine');
   });
 });

@@ -18,6 +18,7 @@ const NOTE_MAX = 5_000;
 const COMMENT_MAX = 10_000;
 const LIMIT_MAX = 100;
 const LIMIT_DEFAULT = 50;
+const PAGE_MAX = 10_000;
 const SEARCH_MAX = 200;
 
 const ROLE_RANK = Object.freeze({ viewer: 1, user: 2, developer: 3 });
@@ -122,9 +123,7 @@ function hydrateIssue(db, issue) {
     status: status ? { id: status.id, name: status.name, is_closed: !!status.is_closed } : null,
     category: category ? { id: category.id, name: category.name } : null,
     priority: priority ? { id: priority.id, name: priority.name } : null,
-    assignee: assignee
-      ? { id: assignee.id, name: assignee.name, email: assignee.email }
-      : null,
+    assignee: assignee ? { id: assignee.id, name: assignee.name, email: assignee.email } : null,
     created_by: createdBy
       ? { id: createdBy.id, name: createdBy.name, email: createdBy.email }
       : null,
@@ -144,7 +143,13 @@ export function createIssue(db, projectId, userId, role, payload = {}) {
 
   const status =
     payload.statusId != null
-      ? resolveMetadata(db, projectId, 'statuses', toInt(payload.statusId, 'invalid_status'), 'invalid_status')
+      ? resolveMetadata(
+          db,
+          projectId,
+          'statuses',
+          toInt(payload.statusId, 'invalid_status'),
+          'invalid_status',
+        )
       : pickDefault(db, projectId, 'statuses');
   const category =
     payload.categoryId != null
@@ -168,7 +173,9 @@ export function createIssue(db, projectId, userId, role, payload = {}) {
       : pickDefault(db, projectId, 'priorities');
 
   const assignee =
-    payload.assignedTo != null ? resolveAssignee(db, projectId, toInt(payload.assignedTo, 'invalid_assignee')) : null;
+    payload.assignedTo != null
+      ? resolveAssignee(db, projectId, toInt(payload.assignedTo, 'invalid_assignee'))
+      : null;
 
   const issue = db.transaction(() => {
     const number = issuesDb.nextNumber(db, projectId);
@@ -206,11 +213,13 @@ export function getIssue(db, projectId, number) {
 
 export function listIssues(db, projectId, query = {}) {
   const opts = parseFilters(db, projectId, query);
-  const { items, nextCursor } = issuesDb.list(db, projectId, opts);
-  const cursorOut = nextCursor ? encodeCursor(nextCursor) : null;
+  const { items, page, pageSize, total, totalPages } = issuesDb.list(db, projectId, opts);
   return {
     items: items.map((i) => hydrateIssue(db, i)),
-    nextCursor: cursorOut,
+    page,
+    pageSize,
+    total,
+    totalPages,
   };
 }
 
@@ -283,8 +292,7 @@ export function updateIssue(db, projectId, number, userId, role, rawPatch = {}, 
   }
 
   if (Object.prototype.hasOwnProperty.call(patch, 'assignedTo')) {
-    const newId =
-      patch.assignedTo == null ? null : toInt(patch.assignedTo, 'invalid_assignee');
+    const newId = patch.assignedTo == null ? null : toInt(patch.assignedTo, 'invalid_assignee');
     if ((newId ?? null) !== (current.assigned_to ?? null)) {
       const nextUser = newId == null ? null : resolveAssignee(db, projectId, newId);
       const prevUser = current.assigned_to ? usersDb.getById(db, current.assigned_to) : null;
@@ -359,7 +367,14 @@ function toInt(raw, errorCode) {
   return n;
 }
 
-const PATCH_KEYS = Object.freeze(['name', 'description', 'statusId', 'categoryId', 'priorityId', 'assignedTo']);
+const PATCH_KEYS = Object.freeze([
+  'name',
+  'description',
+  'statusId',
+  'categoryId',
+  'priorityId',
+  'assignedTo',
+]);
 
 function sanitizePatch(raw) {
   if (!raw || typeof raw !== 'object') return {};
@@ -434,29 +449,6 @@ function validateAssigneeIds(db, projectId, ids) {
   }
 }
 
-function decodeCursor(raw) {
-  if (raw == null || raw === '') return null;
-  try {
-    const json = Buffer.from(String(raw), 'base64').toString('utf8');
-    const parsed = JSON.parse(json);
-    if (
-      parsed == null ||
-      typeof parsed !== 'object' ||
-      parsed.primary == null ||
-      !Number.isInteger(parsed.id)
-    ) {
-      throw new Error('shape');
-    }
-    return { primary: parsed.primary, id: parsed.id };
-  } catch {
-    throw new IssueError('invalid_cursor');
-  }
-}
-
-function encodeCursor(cursor) {
-  return Buffer.from(JSON.stringify(cursor), 'utf8').toString('base64');
-}
-
 function parseFilters(db, projectId, query) {
   const statusIds = parseIdList(query.status);
   const categoryIds = parseIdList(query.category);
@@ -475,12 +467,13 @@ function parseFilters(db, projectId, query) {
 
   let limit = LIMIT_DEFAULT;
   if (query.limit != null) {
-    const n = Number.parseInt(query.limit, 10);
-    if (!Number.isInteger(n) || n < 1 || n > LIMIT_MAX) throw new IssueError('invalid_filter');
-    limit = n;
+    limit = parseBoundedQueryInt(query.limit, 1, LIMIT_MAX);
   }
 
-  const cursor = decodeCursor(query.cursor);
+  let page = 1;
+  if (query.page != null) {
+    page = parseBoundedQueryInt(query.page, 1, PAGE_MAX);
+  }
 
   let q = null;
   if (query.q != null) {
@@ -500,7 +493,17 @@ function parseFilters(db, projectId, query) {
     q,
     sort,
     limit,
-    cursor,
+    page,
   };
 }
 
+function parseBoundedQueryInt(raw, min, max) {
+  if (Array.isArray(raw) || (typeof raw !== 'string' && typeof raw !== 'number')) {
+    throw new IssueError('invalid_filter');
+  }
+  const s = String(raw).trim();
+  if (!/^[0-9]+$/.test(s)) throw new IssueError('invalid_filter');
+  const n = Number(s);
+  if (!Number.isSafeInteger(n) || n < min || n > max) throw new IssueError('invalid_filter');
+  return n;
+}

@@ -9,7 +9,6 @@ export const STATUS_FOR_CODE = Object.freeze({
   invalid_sort_order: 400,
   invalid_field: 400,
   invalid_filter: 400,
-  invalid_cursor: 400,
   invalid_description: 400,
   invalid_note: 400,
   invalid_body: 400,

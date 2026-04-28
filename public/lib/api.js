@@ -43,7 +43,6 @@ export function qs(obj) {
       parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value.join(','))}`);
     } else {
       const s = String(value);
-      if (s === '') continue;
       parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(s)}`);
     }
   }

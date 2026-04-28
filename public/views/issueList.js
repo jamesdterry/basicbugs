@@ -14,29 +14,28 @@ import { FilterBar } from '../components/FilterBar.js';
 import { IssueTable } from '../components/IssueTable.js';
 import { showToast } from '../components/Toast.js';
 
+const PAGE_SIZE = 25;
+
 export function IssueList({ project, metadata, members, currentUserId, initialQuery }) {
   const defaults = filterDefaults(metadata);
 
   let filters = resolveInitial(defaults, initialQuery, currentUserId, project.id);
+  let page = parsePage(initialQuery?.page);
   let items = [];
-  let nextCursor = null;
+  let pageInfo = { page, pageSize: PAGE_SIZE, total: 0, totalPages: 0 };
   let pending = false;
   let lastError = null;
+  let requestSeq = 0;
 
   const contentEl = h('div', { class: 'issue-list-content' });
   const filterBarHolder = h('div', { class: 'filter-bar-holder' });
-  const debouncedFetch = debounce(() => fetchPage({ reset: true }), 200);
+  const debouncedFetch = debounce(() => fetchPage(), 200);
 
   filterBarHolder.replaceChildren(buildFilterBar());
 
-  const root = h(
-    'div',
-    { class: 'issue-list' },
-    filterBarHolder,
-    contentEl,
-  );
+  const root = h('div', { class: 'issue-list' }, filterBarHolder, contentEl);
 
-  fetchPage({ reset: true });
+  fetchPage();
 
   return root;
 
@@ -58,35 +57,44 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
 
   function handleFilterChange(next) {
     filters = next;
+    page = 1;
     persistAndUrl();
     debouncedFetch();
   }
 
   function handleClearFilters() {
     filters = { ...defaults, status: defaults.status.slice() };
+    page = 1;
     persistAndUrl();
     rebuildFilterBar();
-    fetchPage({ reset: true });
+    fetchPage();
   }
 
   function handleResetToDefaults() {
     clearStorage(currentUserId, project.id);
     filters = { ...defaults, status: defaults.status.slice() };
+    page = 1;
     updateUrl();
     rebuildFilterBar();
-    fetchPage({ reset: true });
+    fetchPage();
   }
 
   function handleSortChange(nextSort) {
     if (nextSort === filters.sort) return;
     filters = { ...filters, sort: nextSort };
+    page = 1;
     persistAndUrl();
-    fetchPage({ reset: true });
+    fetchPage();
   }
 
-  function handleLoadMore() {
-    if (pending || !nextCursor) return;
-    fetchPage({ reset: false });
+  function handlePageChange(nextPage) {
+    if (pending) return;
+    const maxPage = Math.max(1, pageInfo.totalPages);
+    const bounded = Math.min(Math.max(1, nextPage), maxPage);
+    if (bounded === page) return;
+    page = bounded;
+    updateUrl();
+    fetchPage();
   }
 
   function persistAndUrl() {
@@ -96,6 +104,7 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
 
   function updateUrl() {
     const query = serializeToQuery(filters, defaults);
+    if (page > 1) query.page = page;
     const queryString = qs(query);
     const target = `#/projects/${project.id}${queryString}`;
     if (location.hash !== target) {
@@ -103,34 +112,51 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
     }
   }
 
-  async function fetchPage({ reset }) {
+  async function fetchPage() {
+    const requestId = ++requestSeq;
     pending = true;
-    if (reset) {
-      items = [];
-      nextCursor = null;
-    }
+    items = [];
     lastError = null;
     renderContent();
 
     const queryParams = {
       ...serializeToQuery(filters, defaults),
-      // Always send `archived` explicitly so non-default-true is preserved
-      // (serializeToQuery already handles that). Default-false is omitted.
+      limit: PAGE_SIZE,
+      page,
     };
-    if (!reset && nextCursor) queryParams.cursor = nextCursor;
 
     const url = `/api/projects/${project.id}/issues${qs(queryParams)}`;
 
     try {
       const result = await getJson(url);
-      items = reset ? result.items : [...items, ...result.items];
-      nextCursor = result.nextCursor ?? null;
+      if (requestId !== requestSeq) return;
+      let nextPageInfo = normalizePageInfo(result);
+      if (nextPageInfo.total === 0 && page > 1) {
+        page = 1;
+        nextPageInfo = { ...nextPageInfo, page };
+        updateUrl();
+      }
+      if (nextPageInfo.total > 0 && nextPageInfo.totalPages > 0 && page > nextPageInfo.totalPages) {
+        page = nextPageInfo.totalPages;
+        updateUrl();
+        fetchPage();
+        return;
+      }
+      items = result.items ?? [];
+      page = nextPageInfo.page;
+      pageInfo = nextPageInfo;
     } catch (err) {
+      if (requestId !== requestSeq) return;
       lastError = err;
-      showToast(err?.message ? `Could not load issues: ${err.message}` : 'Could not load issues', 'error');
+      showToast(
+        err?.message ? `Could not load issues: ${err.message}` : 'Could not load issues',
+        'error',
+      );
     } finally {
-      pending = false;
-      renderContent();
+      if (requestId === requestSeq) {
+        pending = false;
+        renderContent();
+      }
     }
   }
 
@@ -139,13 +165,13 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
   }
 
   function buildContent() {
-    if (items.length === 0 && pending) {
+    if (pending) {
       return h('p', { class: 'issue-list-loading muted' }, 'Loading issues…');
     }
     if (items.length === 0 && lastError) {
       return h('p', { class: 'issue-list-error' }, 'Could not load issues. Please retry.');
     }
-    if (items.length === 0) {
+    if (pageInfo.total === 0) {
       return emptyState();
     }
     return h(
@@ -162,23 +188,76 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
   }
 
   function paginationFooter() {
-    if (nextCursor == null) {
-      return h('p', { class: 'issue-list-footer muted' }, `${items.length} ${items.length === 1 ? 'issue' : 'issues'}`);
+    const total = pageInfo.total;
+    const totalPages = pageInfo.totalPages;
+    if (totalPages <= 1) {
+      return h(
+        'p',
+        { class: 'issue-list-footer muted' },
+        `${total} ${total === 1 ? 'issue' : 'issues'}`,
+      );
     }
+    const start = (pageInfo.page - 1) * pageInfo.pageSize + 1;
+    const end = Math.min(total, start + items.length - 1);
     return h(
-      'div',
-      { class: 'issue-list-footer' },
+      'nav',
+      { class: 'issue-list-footer pager', 'aria-label': 'Issue pages' },
+      h('span', { class: 'pager-summary muted' }, `Showing ${start}-${end} of ${total} issues`),
       h(
-        'button',
-        {
-          type: 'button',
-          class: 'load-more-btn',
-          disabled: pending,
-          onclick: handleLoadMore,
-        },
-        pending ? 'Loading…' : 'Load more',
+        'div',
+        { class: 'pager-controls' },
+        pageNavButton('Previous', pageInfo.page - 1, pageInfo.page <= 1),
+        ...pageItems(pageInfo.page, totalPages).map((item) =>
+          item === 'gap'
+            ? h('span', { class: 'pager-gap', 'aria-hidden': 'true' }, '...')
+            : pageNumberButton(item),
+        ),
+        pageNavButton('Next', pageInfo.page + 1, pageInfo.page >= totalPages),
       ),
     );
+  }
+
+  function pageNavButton(label, targetPage, disabled) {
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: 'pager-btn',
+        disabled: disabled || pending,
+        onclick: () => handlePageChange(targetPage),
+      },
+      label,
+    );
+  }
+
+  function pageNumberButton(number) {
+    const current = number === pageInfo.page;
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: `pager-page-btn${current ? ' is-current' : ''}`,
+        disabled: current || pending,
+        'aria-current': current ? 'page' : null,
+        onclick: () => handlePageChange(number),
+      },
+      String(number),
+    );
+  }
+
+  function normalizePageInfo(result) {
+    const resultPage = Number.isInteger(result.page) && result.page > 0 ? result.page : page;
+    const pageSize =
+      Number.isInteger(result.pageSize) && result.pageSize > 0 ? result.pageSize : PAGE_SIZE;
+    const total =
+      Number.isInteger(result.total) && result.total >= 0
+        ? result.total
+        : (result.items ?? []).length;
+    const totalPages =
+      Number.isInteger(result.totalPages) && result.totalPages >= 0
+        ? result.totalPages
+        : Math.ceil(total / pageSize);
+    return { page: resultPage, pageSize, total, totalPages };
   }
 
   function emptyState() {
@@ -210,7 +289,32 @@ export function IssueList({ project, metadata, members, currentUserId, initialQu
 function resolveInitial(defaults, initialQuery, userId, projectId) {
   const fromUrl = parseFromQuery(initialQuery, defaults);
   if (fromUrl) return fromUrl;
+  if (hasPageQuery(initialQuery)) return { ...defaults, status: defaults.status.slice() };
   const fromStorage = loadFromStorage(userId, projectId);
   if (fromStorage) return fromStorage;
   return { ...defaults, status: defaults.status.slice() };
+}
+
+function parsePage(raw) {
+  const n = Number.parseInt(raw, 10);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
+function hasPageQuery(queryObj) {
+  return queryObj != null && Object.prototype.hasOwnProperty.call(queryObj, 'page');
+}
+
+function pageItems(current, totalPages) {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+
+  const items = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(totalPages - 1, current + 1);
+
+  if (start > 2) items.push('gap');
+  for (let n = start; n <= end; n++) items.push(n);
+  if (end < totalPages - 1) items.push('gap');
+  items.push(totalPages);
+
+  return items;
 }

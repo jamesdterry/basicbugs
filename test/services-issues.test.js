@@ -53,7 +53,9 @@ describe('services/issues.createIssue', () => {
 
   it('rejects archived metadata', () => {
     const { db, owner, project } = bootstrap();
-    const inProgress = metadataDb.list(db, 'statuses', project.id).find((s) => s.name === 'In Progress');
+    const inProgress = metadataDb
+      .list(db, 'statuses', project.id)
+      .find((s) => s.name === 'In Progress');
     metadataSvc.archiveItem(db, 'statuses', project.id, inProgress.id);
     expect(() =>
       issues.createIssue(db, project.id, owner.id, 'developer', {
@@ -65,16 +67,16 @@ describe('services/issues.createIssue', () => {
 
   it('rejects empty name', () => {
     const { db, owner, project } = bootstrap();
-    expect(() =>
-      issues.createIssue(db, project.id, owner.id, 'user', { name: '   ' }),
-    ).toThrow(/invalid_name/);
+    expect(() => issues.createIssue(db, project.id, owner.id, 'user', { name: '   ' })).toThrow(
+      /invalid_name/,
+    );
   });
 
   it('viewer cannot create', () => {
     const { db, owner, project } = bootstrap();
-    expect(() =>
-      issues.createIssue(db, project.id, owner.id, 'viewer', { name: 'x' }),
-    ).toThrow(/forbidden/);
+    expect(() => issues.createIssue(db, project.id, owner.id, 'viewer', { name: 'x' })).toThrow(
+      /forbidden/,
+    );
   });
 });
 
@@ -82,7 +84,9 @@ describe('services/issues.updateIssue — permission matrix', () => {
   function setup() {
     const { db, owner, project } = bootstrap();
     const issue = issues.createIssue(db, project.id, owner.id, 'developer', { name: 'i' });
-    const inProgress = metadataDb.list(db, 'statuses', project.id).find((s) => s.name === 'In Progress');
+    const inProgress = metadataDb
+      .list(db, 'statuses', project.id)
+      .find((s) => s.name === 'In Progress');
     return { db, owner, project, issue, inProgress };
   }
 
@@ -134,7 +138,9 @@ describe('services/issues — history fidelity & display strings', () => {
   it('5 sequential edits + 2 comments produce 7 history events with display strings', () => {
     const { db, owner, project } = bootstrap();
     const issue = issues.createIssue(db, project.id, owner.id, 'developer', { name: 'orig' });
-    const inProgress = metadataDb.list(db, 'statuses', project.id).find((s) => s.name === 'In Progress');
+    const inProgress = metadataDb
+      .list(db, 'statuses', project.id)
+      .find((s) => s.name === 'In Progress');
     const blocked = metadataDb.list(db, 'statuses', project.id).find((s) => s.name === 'Blocked');
     const high = metadataDb.list(db, 'priorities', project.id).find((p) => p.name === 'High');
     const feature = metadataDb.list(db, 'categories', project.id).find((c) => c.name === 'Feature');
@@ -214,17 +220,17 @@ describe('services/issues.commentIssue', () => {
   it('viewer cannot comment', () => {
     const { db, owner, project } = bootstrap();
     issues.createIssue(db, project.id, owner.id, 'developer', { name: 'n' });
-    expect(() =>
-      issues.commentIssue(db, project.id, 1, owner.id, 'viewer', 'hi'),
-    ).toThrow(/forbidden/);
+    expect(() => issues.commentIssue(db, project.id, 1, owner.id, 'viewer', 'hi')).toThrow(
+      /forbidden/,
+    );
   });
 
   it('rejects empty body', () => {
     const { db, owner, project } = bootstrap();
     issues.createIssue(db, project.id, owner.id, 'developer', { name: 'n' });
-    expect(() =>
-      issues.commentIssue(db, project.id, 1, owner.id, 'user', '   '),
-    ).toThrow(/invalid_body/);
+    expect(() => issues.commentIssue(db, project.id, 1, owner.id, 'user', '   ')).toThrow(
+      /invalid_body/,
+    );
   });
 });
 
@@ -232,9 +238,7 @@ describe('services/issues.archiveIssue', () => {
   it('developer-only; idempotent', () => {
     const { db, owner, project } = bootstrap();
     issues.createIssue(db, project.id, owner.id, 'developer', { name: 'n' });
-    expect(() =>
-      issues.archiveIssue(db, project.id, 1, owner.id, 'user'),
-    ).toThrow(/forbidden/);
+    expect(() => issues.archiveIssue(db, project.id, 1, owner.id, 'user')).toThrow(/forbidden/);
 
     const a1 = issues.archiveIssue(db, project.id, 1, owner.id, 'developer');
     expect(a1.archived_at).toBeTruthy();
@@ -248,48 +252,49 @@ describe('services/issues.listIssues — filter parser', () => {
     const { db, owner, project } = bootstrap();
     const other = projects.createProject(db, { name: 'Other' });
     const otherStatus = metadataDb.list(db, 'statuses', other.id)[0];
-    expect(() =>
-      issues.listIssues(db, project.id, { status: String(otherStatus.id) }),
-    ).toThrow(/invalid_filter/);
+    expect(() => issues.listIssues(db, project.id, { status: String(otherStatus.id) })).toThrow(
+      /invalid_filter/,
+    );
     // ensure unused warning silenced
     expect(owner).toBeTruthy();
   });
 
   it('rejects unknown ids and bad sorts', () => {
     const { db, project } = bootstrap();
-    expect(() => issues.listIssues(db, project.id, { status: '99999' })).toThrow(
-      /invalid_filter/,
-    );
-    expect(() => issues.listIssues(db, project.id, { sort: 'bogus' })).toThrow(
-      /invalid_filter/,
-    );
-    expect(() => issues.listIssues(db, project.id, { limit: '0' })).toThrow(
-      /invalid_filter/,
-    );
+    expect(() => issues.listIssues(db, project.id, { status: '99999' })).toThrow(/invalid_filter/);
+    expect(() => issues.listIssues(db, project.id, { sort: 'bogus' })).toThrow(/invalid_filter/);
+    expect(() => issues.listIssues(db, project.id, { limit: '0' })).toThrow(/invalid_filter/);
+    expect(() => issues.listIssues(db, project.id, { limit: '2x' })).toThrow(/invalid_filter/);
   });
 
-  it('parses unassigned token + paginates with opaque cursor', () => {
+  it('parses unassigned token + paginates by page', () => {
     const { db, owner, project } = bootstrap();
     issues.createIssue(db, project.id, owner.id, 'developer', { name: 'a' });
     issues.createIssue(db, project.id, owner.id, 'developer', { name: 'b' });
     issues.createIssue(db, project.id, owner.id, 'developer', { name: 'c' });
-    const r = issues.listIssues(db, project.id, { assignee: 'unassigned', limit: '2', sort: 'number_asc' });
+    const r = issues.listIssues(db, project.id, {
+      assignee: 'unassigned',
+      limit: '2',
+      sort: 'number_asc',
+    });
     expect(r.items).toHaveLength(2);
-    expect(typeof r.nextCursor).toBe('string');
+    expect(r.page).toBe(1);
+    expect(r.pageSize).toBe(2);
+    expect(r.total).toBe(3);
+    expect(r.totalPages).toBe(2);
     const r2 = issues.listIssues(db, project.id, {
       assignee: 'unassigned',
       limit: '2',
       sort: 'number_asc',
-      cursor: r.nextCursor,
+      page: '2',
     });
     expect(r2.items).toHaveLength(1);
-    expect(r2.nextCursor).toBeNull();
+    expect(r2.page).toBe(2);
   });
 
-  it('rejects malformed cursor', () => {
+  it('rejects invalid page numbers', () => {
     const { db, project } = bootstrap();
-    expect(() => issues.listIssues(db, project.id, { cursor: 'not-base64-json!' })).toThrow(
-      /invalid_cursor/,
-    );
+    expect(() => issues.listIssues(db, project.id, { page: '0' })).toThrow(/invalid_filter/);
+    expect(() => issues.listIssues(db, project.id, { page: '1.5' })).toThrow(/invalid_filter/);
   });
 });

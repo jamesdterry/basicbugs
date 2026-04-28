@@ -138,7 +138,7 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 3. On entry: read URL → fall back to `localStorage` → fall back to system default (open, non-closed statuses, priority desc).
 4. "Reset to defaults" clears `localStorage` for this project; "Clear filters" only resets the in-memory filter object.
 5. Column-header click toggles sort; default tiebreaker `updated_at DESC`.
-6. Pagination: server returns `{items, nextCursor}`; "Load more" button (infinite scroll deferred).
+6. Pagination: server returns `{items, page, pageSize, total, totalPages}`; pager controls replace load-more appends.
 7. Empty states: no issues at all vs. no issues match filters (with "Clear filters" CTA).
 
 **Verify:** apply a filter, reload, see it restored; share URL in another browser/profile, see same filter applied; create 50 issues and confirm sort + pagination behave.
@@ -147,9 +147,9 @@ Each stage is independently shippable: the app boots, tests pass, and you can de
 
 Let's implement paging for issues rather than a load more that just adds to the total list.
 
- Lint — clean (the two remaining errors are pre-existing in TopBar.js and spa.test.js, unrelated to this work)
+Lint — clean (the two remaining errors are pre-existing in TopBar.js and spa.test.js, unrelated to this work)
 
-A pre-existing flaky test in routes-issues.test.js ("user can patch name but not status") passes in isolation but occasionally flakes in the full file run — independent of this work. 
+A pre-existing flaky test in routes-issues.test.js ("user can patch name but not status") passes in isolation but occasionally flakes in the full file run — independent of this work.
 
 ## Interim step DONE — Playwright + chromium for agentic browser testing
 
@@ -161,6 +161,7 @@ Lets a real browser drive the SPA end-to-end (so future agentic sessions can ver
 - New CI job runs `npm run e2e` and uploads `playwright-report/` on failure.
 
 **Run locally:**
+
 1. `npm run e2e:install` — one-time chromium download (~150 MB).
 2. `npm run e2e` — full suite. Add `:ui` for the inspector, `:headed` for a visible browser.
 

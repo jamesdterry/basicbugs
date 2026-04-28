@@ -96,10 +96,12 @@ describe('db/issues.update', () => {
 });
 
 describe('db/issues.list filters + pagination', () => {
-  it('filters by status + paginates with cursor', () => {
+  it('filters by status + paginates by page', () => {
     const ctx = bootstrap();
     const { db } = ctx;
-    const inProgress = metadataDb.list(db, 'statuses', ctx.project.id).find((s) => s.name === 'In Progress');
+    const inProgress = metadataDb
+      .list(db, 'statuses', ctx.project.id)
+      .find((s) => s.name === 'In Progress');
     // 3 Open, 2 In Progress
     newIssue(db, ctx, { name: '1' });
     newIssue(db, ctx, { name: '2' });
@@ -116,22 +118,25 @@ describe('db/issues.list filters + pagination', () => {
     // Pagination
     const page1 = issuesDb.list(db, ctx.project.id, { sort: 'number_asc', limit: 2 });
     expect(page1.items.map((i) => i.number)).toEqual([1, 2]);
-    expect(page1.nextCursor).toBeTruthy();
+    expect(page1.page).toBe(1);
+    expect(page1.pageSize).toBe(2);
+    expect(page1.total).toBe(5);
+    expect(page1.totalPages).toBe(3);
 
     const page2 = issuesDb.list(db, ctx.project.id, {
       sort: 'number_asc',
       limit: 2,
-      cursor: page1.nextCursor,
+      page: 2,
     });
     expect(page2.items.map((i) => i.number)).toEqual([3, 4]);
 
     const page3 = issuesDb.list(db, ctx.project.id, {
       sort: 'number_asc',
       limit: 2,
-      cursor: page2.nextCursor,
+      page: 3,
     });
     expect(page3.items.map((i) => i.number)).toEqual([5]);
-    expect(page3.nextCursor).toBeNull();
+    expect(page3.totalPages).toBe(3);
   });
 
   it('respects includeArchived', () => {
@@ -142,9 +147,7 @@ describe('db/issues.list filters + pagination', () => {
     issuesDb.archive(db, dead.id);
 
     expect(issuesDb.list(db, ctx.project.id, {}).items.map((i) => i.id)).toEqual([live.id]);
-    expect(
-      issuesDb.list(db, ctx.project.id, { includeArchived: true }).items.length,
-    ).toBe(2);
+    expect(issuesDb.list(db, ctx.project.id, { includeArchived: true }).items.length).toBe(2);
   });
 
   it('filters by assignee + unassigned', () => {
