@@ -2,6 +2,21 @@ import { h, set, state } from '../lib/state.js';
 import { getJson, patchJson, postJson, deleteJson } from '../lib/api.js';
 import { showToast } from '../components/Toast.js';
 import { openModal } from '../components/Modal.js';
+import { Tabs } from '../components/Tabs.js';
+
+const TABS = [
+  { key: 'profile', label: 'Profile' },
+  { key: 'password', label: 'Password' },
+  { key: 'sessions', label: 'Sessions' },
+  { key: 'notifications', label: 'Notifications' },
+];
+
+const PREF_LABELS = [
+  { key: 'assigned_to_me', label: 'When an issue is assigned to me' },
+  { key: 'mentioned', label: 'When I am @mentioned' },
+  { key: 'watched_status_change', label: 'When the status changes on issues I watch' },
+  { key: 'watched_any_change', label: 'When any field changes on issues I watch' },
+];
 
 function relativeOrAbsolute(date) {
   if (!date) return '—';
@@ -9,7 +24,12 @@ function relativeOrAbsolute(date) {
   return d.toLocaleString();
 }
 
-export function meView() {
+function tabFromHash(query) {
+  const t = query?.tab;
+  return TABS.some((x) => x.key === t) ? t : 'profile';
+}
+
+export function meView(params = {}) {
   const view = h(
     'section',
     { class: 'view view-me' },
@@ -21,32 +41,64 @@ export function meView() {
     ),
   );
 
+  let current = tabFromHash(params.query);
+  const tabsEl = h('div');
   const content = h('div', { class: 'me-content' }, h('p', { class: 'muted' }, 'Loading…'));
+  view.appendChild(tabsEl);
   view.appendChild(content);
 
   let me = null;
   let sessions = [];
+  let prefs = null;
+
+  function setTab(next) {
+    if (next === current) return;
+    current = next;
+    history.replaceState(null, '', `#/me?tab=${encodeURIComponent(next)}`);
+    render();
+  }
 
   async function load() {
     try {
-      const [profileRes, sessionsRes] = await Promise.all([
+      const [profileRes, sessionsRes, prefsRes] = await Promise.all([
         getJson('/api/me'),
         getJson('/api/me/sessions'),
+        getJson('/api/me/notification-prefs'),
       ]);
       me = profileRes.user;
       sessions = sessionsRes.sessions ?? [];
+      prefs = prefsRes.prefs ?? {};
       render();
     } catch (err) {
-      content.replaceChildren(h('p', { class: 'muted' }, `Could not load: ${err?.message ?? 'unknown'}`));
+      content.replaceChildren(
+        h('p', { class: 'muted' }, `Could not load: ${err?.message ?? 'unknown'}`),
+      );
     }
   }
 
   function render() {
-    content.replaceChildren(
-      profileSection(me),
-      passwordSection(me),
-      sessionsSection(sessions, load),
-    );
+    if (!me) return;
+    tabsEl.replaceChildren(Tabs({ tabs: TABS, current, onChange: setTab }));
+    let body;
+    switch (current) {
+      case 'password':
+        body = passwordSection(me);
+        break;
+      case 'sessions':
+        body = sessionsSection(sessions, load);
+        break;
+      case 'notifications':
+        body = notificationsSection(prefs, async () => {
+          const res = await getJson('/api/me/notification-prefs');
+          prefs = res.prefs;
+        });
+        break;
+      case 'profile':
+      default:
+        body = profileSection(me);
+        break;
+    }
+    content.replaceChildren(body);
   }
 
   load();
@@ -282,6 +334,50 @@ function sessionsSection(sessions, reload) {
       h('tbody', {}, rows.length ? rows : h('tr', {}, h('td', { colspan: '4', class: 'muted' }, 'No sessions.'))),
     ),
     h('div', { class: 'admin-toolbar' }, revokeAll),
+  );
+}
+
+function notificationsSection(prefs, refresh) {
+  const rows = PREF_LABELS.map(({ key, label }) => {
+    const checked = prefs?.[key] !== false;
+    const cb = h('input', {
+      type: 'checkbox',
+      class: 'pref-checkbox',
+      checked,
+      'aria-label': label,
+      onChange: async (e) => {
+        const next = !!e.target.checked;
+        cb.disabled = true;
+        try {
+          await patchJson('/api/me/notification-prefs', { [key]: next });
+          if (refresh) await refresh();
+          showToast('Saved', 'info');
+        } catch (err) {
+          e.target.checked = !next;
+          showToast(err?.message ?? 'Save failed', 'error');
+        } finally {
+          cb.disabled = false;
+        }
+      },
+    });
+    return h(
+      'label',
+      { class: 'pref-row' },
+      cb,
+      h('span', { class: 'pref-row-label' }, label),
+    );
+  });
+
+  return h(
+    'section',
+    { class: 'me-section' },
+    h('h2', {}, 'Email notifications'),
+    h(
+      'p',
+      { class: 'muted' },
+      'You also receive an in-app notification for the same events; these settings only control email delivery.',
+    ),
+    h('div', { class: 'pref-list' }, ...rows),
   );
 }
 

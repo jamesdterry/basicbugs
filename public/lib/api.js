@@ -30,6 +30,7 @@ async function request(method, url, body) {
 
 export const getJson = (url) => request('GET', url);
 export const postJson = (url, body = {}) => request('POST', url, body);
+export const putJson = (url, body) => request('PUT', url, body);
 export const patchJson = (url, body = {}) => request('PATCH', url, body);
 export const deleteJson = (url) => request('DELETE', url);
 

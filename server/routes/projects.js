@@ -6,6 +6,7 @@ import * as projects from '../services/projects.js';
 import * as projectMembers from '../services/projectMembers.js';
 import * as metadata from '../services/metadata.js';
 import * as metadataDb from '../db/metadata.js';
+import * as mentions from '../services/mentions.js';
 import { createIssuesRouter } from './issues.js';
 import { handleError } from './errors.js';
 
@@ -261,6 +262,17 @@ export function createProjectsRouter({ db }) {
       }
     },
   );
+
+  // ---------- Mention autocomplete ----------
+
+  router.get('/projects/:id/member-mentions', requireProjectViewer, (req, res, next) => {
+    try {
+      const items = mentions.listMembersForMentions(db, req.project.id);
+      res.json({ items });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
 
   // ---------- Issues ----------
   router.use('/projects/:id/issues', createIssuesRouter({ db }));

@@ -1700,3 +1700,257 @@ main.auth h1 {
   border-radius: calc(var(--radius) - 0.1rem);
   padding: 0.3rem 0.5rem;
 }
+
+/* ---------- Stage 10: notification bell ---------- */
+
+.notif-bell {
+  position: relative;
+}
+
+.notif-bell-trigger {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.55rem;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  line-height: 1;
+}
+
+.notif-bell-trigger:hover,
+.notif-bell-trigger[aria-expanded='true'] {
+  background: var(--hover);
+}
+
+.notif-bell-icon {
+  font-size: 1rem;
+}
+
+.notif-bell-badge {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.3rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--danger, #c43d3d);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+.notif-bell-badge[hidden] {
+  display: none;
+}
+
+.notif-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  min-width: 22rem;
+  max-width: 26rem;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-header {
+  padding: 0.55rem 0.75rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.notif-list {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.notif-empty {
+  padding: 1rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.notif-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    'kind  time'
+    'issue time'
+    'actor actor';
+  gap: 0.1rem 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--fg);
+  font-size: 0.9rem;
+}
+
+.notif-row:hover {
+  background: var(--hover);
+}
+
+.notif-row-unread {
+  background: var(--accent-bg, rgba(40, 90, 220, 0.06));
+}
+
+.notif-row-kind {
+  grid-area: kind;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.notif-row-issue {
+  grid-area: issue;
+  font-weight: 500;
+}
+
+.notif-row-actor {
+  grid-area: actor;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.notif-row-time {
+  grid-area: time;
+  color: var(--muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.notif-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2, var(--surface));
+}
+
+.notif-mark-all,
+.notif-settings-link {
+  background: transparent;
+  border: 0;
+  color: var(--accent, var(--fg));
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0.2rem 0.3rem;
+  border-radius: calc(var(--radius) - 2px);
+}
+
+.notif-mark-all:hover,
+.notif-settings-link:hover {
+  background: var(--hover);
+}
+
+/* ---------- Stage 10: watch toggle ---------- */
+
+.issue-detail-actions {
+  display: inline-flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.watch-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.75rem;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.watch-btn:hover {
+  background: var(--hover);
+}
+
+.watch-btn-on {
+  background: var(--accent-bg, rgba(40, 90, 220, 0.1));
+  border-color: var(--accent, var(--border));
+}
+
+/* ---------- Stage 10: notification prefs ---------- */
+
+.pref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pref-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.pref-row:hover {
+  background: var(--hover);
+}
+
+.pref-checkbox {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pref-row-label {
+  font-size: 0.95rem;
+}
+
+/* ---------- Stage 10: mention popover ---------- */
+
+.mention-popover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.mention-item {
+  background: transparent;
+  border: 0;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+  color: var(--fg);
+  cursor: pointer;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+}
+
+.mention-item.is-active,
+.mention-item:hover {
+  background: var(--hover);
+}
+
+.mention-item-handle {
+  font-weight: 500;
+}
+
+.mention-item-name {
+  font-size: 0.85rem;
+}

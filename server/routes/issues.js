@@ -2,8 +2,10 @@ import express from 'express';
 import { createRequireProjectRole } from '../middleware/requireProjectRole.js';
 import * as issues from '../services/issues.js';
 import * as attachments from '../services/attachments.js';
+import * as watches from '../services/watches.js';
 import * as issuesDb from '../db/issues.js';
 import { createIssueAttachmentsRouter } from './attachments.js';
+import { handleError } from './errors.js';
 
 export function createIssuesRouter({ db }) {
   const router = express.Router({ mergeParams: true });
@@ -44,7 +46,8 @@ export function createIssuesRouter({ db }) {
       const result = issues.getIssue(db, req.project.id, number);
       const issueRow = issuesDb.getByNumber(db, req.project.id, number);
       const atts = issueRow ? attachments.listAttachmentsForIssue(db, issueRow.id) : [];
-      res.json({ ...result, attachments: atts });
+      const isWatching = issueRow ? watches.isWatching(db, issueRow.id, req.user.id) : false;
+      res.json({ ...result, attachments: atts, isWatching });
     } catch (err) {
       next(err);
     }
@@ -119,6 +122,28 @@ export function createIssuesRouter({ db }) {
       res.json({ issue });
     } catch (err) {
       next(err);
+    }
+  });
+
+  router.put('/:number/watch', (req, res, next) => {
+    try {
+      const number = parseNumber(req, res);
+      if (number == null) return;
+      watches.watch(db, req.project.id, number, req.user.id);
+      res.json({ isWatching: true });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.delete('/:number/watch', (req, res, next) => {
+    try {
+      const number = parseNumber(req, res);
+      if (number == null) return;
+      watches.unwatch(db, req.project.id, number, req.user.id);
+      res.json({ isWatching: false });
+    } catch (err) {
+      handleError(res, next, err);
     }
   });
 

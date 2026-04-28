@@ -1,6 +1,7 @@
 import { h } from '../lib/state.js';
+import { attachMentions } from './MentionInput.js';
 
-export function CommentBox({ initialValue = '', onSubmit, busy, disabled, placeholder }) {
+export function CommentBox({ initialValue = '', onSubmit, busy, disabled, placeholder, projectId }) {
   const root = h('form', { class: 'comment-box' });
 
   let value = initialValue ?? '';
@@ -23,6 +24,7 @@ export function CommentBox({ initialValue = '', onSubmit, busy, disabled, placeh
     },
   });
   ta.value = value;
+  if (projectId) attachMentions(ta, { projectId });
 
   const submitBtn = h(
     'button',

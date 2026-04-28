@@ -1,5 +1,5 @@
 import { h, state } from '../lib/state.js';
-import { getJson, patchJson, postJson, postForm } from '../lib/api.js';
+import { getJson, patchJson, postJson, postForm, deleteJson, putJson } from '../lib/api.js';
 import { showToast } from '../components/Toast.js';
 import { openModal } from '../components/Modal.js';
 import {
@@ -39,6 +39,8 @@ export function issueDetail(params) {
     issue: null,
     history: [],
     attachments: [],
+    isWatching: false,
+    watchBusy: false,
     pendingPatch: {},
     saveNote: '',
     pendingCommentFiles: [],
@@ -96,6 +98,7 @@ export function issueDetail(params) {
             value: ctx.issue.description,
             role: ctx.role,
             dirty: 'description' in ctx.pendingPatch,
+            projectId: ctx.projectId,
             onCommit: (next) =>
               commitField('description', normalizeDescription(next), ctx.issue.description ?? null),
           }),
@@ -116,6 +119,7 @@ export function issueDetail(params) {
               busy: ctx.commenting,
               disabled: !canComment(),
               placeholder: canComment() ? 'Write a comment…' : 'Viewers cannot comment.',
+              projectId: ctx.projectId,
             }),
             commentDropzone(),
           ),
@@ -164,6 +168,7 @@ export function issueDetail(params) {
         onSave: saveChanges,
         onDiscard: discardChanges,
         busy: ctx.saving,
+        projectId: ctx.projectId,
       }),
     );
   }
@@ -182,6 +187,10 @@ export function issueDetail(params) {
         )
       : h('h1', {}, `#${ctx.number}`);
 
+    const actions = ctx.issue
+      ? h('div', { class: 'issue-detail-actions' }, watchToggle())
+      : null;
+
     return h(
       'header',
       { class: 'view-header' },
@@ -191,7 +200,41 @@ export function issueDetail(params) {
         h('a', { href: `#/projects/${ctx.projectId}` }, `← ${ctx.project.name}`),
       ),
       heading,
+      actions,
     );
+  }
+
+  function watchToggle() {
+    const watching = !!ctx.isWatching;
+    return h(
+      'button',
+      {
+        type: 'button',
+        class: `watch-btn${watching ? ' watch-btn-on' : ''}`,
+        disabled: ctx.watchBusy,
+        'aria-pressed': watching ? 'true' : 'false',
+        title: watching ? 'You are watching this issue' : 'Watch this issue',
+        onClick: () => toggleWatch(),
+      },
+      watching ? '✓ Watching' : 'Watch',
+    );
+  }
+
+  async function toggleWatch() {
+    if (ctx.watchBusy || !ctx.issue) return;
+    ctx.watchBusy = true;
+    render();
+    const target = !ctx.isWatching;
+    try {
+      const url = `/api/projects/${ctx.projectId}/issues/${ctx.number}/watch`;
+      const res = target ? await putJson(url) : await deleteJson(url);
+      ctx.isWatching = !!res.isWatching;
+    } catch (err) {
+      showToast(`Could not update watch: ${err?.message ?? 'unknown error'}`, 'error');
+    } finally {
+      ctx.watchBusy = false;
+      render();
+    }
   }
 
   function attachmentsSection() {
@@ -304,6 +347,7 @@ export function issueDetail(params) {
       ctx.issue = detail.issue;
       ctx.history = detail.history ?? [];
       ctx.attachments = detail.attachments ?? [];
+      ctx.isWatching = !!detail.isWatching;
       ctx.metadata = projectDetail.metadata ?? { statuses: [], categories: [], priorities: [] };
       ctx.members = (projectDetail.members ?? []).map((m) => ({
         id: m.user_id ?? m.id,
@@ -331,6 +375,7 @@ export function issueDetail(params) {
       ctx.issue = detail.issue;
       ctx.history = detail.history ?? [];
       ctx.attachments = detail.attachments ?? [];
+      ctx.isWatching = !!detail.isWatching;
     } catch (err) {
       if (reqId !== ctx.requestSeq) return;
       showToast(`Could not refresh issue: ${err?.message ?? 'unknown error'}`, 'error');

@@ -245,14 +245,13 @@ E2e suite remains flaky under default parallel workers due to pre-existing SQLit
 **Goal:** power-user features on the issue list.
 
 1. **Saved filters** — migration `0004_saved_filters.sql`: `saved_filters (id, user_id, project_id, name, filter_json, is_default, created_at)`. Routes under `/api/projects/:id/filters`. UI: dropdown in filter bar with save/rename/delete/set-default. Personal default overrides last-used on entry.
-2. **Bulk edit** — checkbox column on the list; floating action bar appears when ≥1 selected. Server endpoint `POST /api/projects/:id/issues/bulk` accepts `{ids, patch, note}` and applies the change per-issue, reusing the permission matrix and history service.
-3. **FTS5** — migration `0005_fts.sql`: virtual table `issues_fts` over `name`, `description`, plus comment bodies via a triggered shadow content. Triggers on `issues` and `issue_history` keep the index current. Search input switches to FTS query when populated; falls back to LIKE if FTS5 isn't compiled in.
+2. **FTS5** — migration `0005_fts.sql`: virtual table `issues_fts` over `name`, `description`, plus comment bodies via a triggered shadow content. Triggers on `issues` and `issue_history` keep the index current. Search input switches to FTS query when populated; falls back to LIKE if FTS5 isn't compiled in.
 
-**Verify:** save a filter, set it default, reload, see it applied; bulk-archive 10 issues with a single note → 10 history events written; FTS finds matches in comments.
+**Verify:** save a filter, set it default, reload, see it applied; FTS finds matches in comments.
 
 ---
 
-## Stage 12 — API tokens and activity feed
+## Stage 12 SKIP — API tokens and activity feed
 
 **Goal:** programmatic access and admin visibility.
 
@@ -265,7 +264,7 @@ E2e suite remains flaky under default parallel workers due to pre-existing SQLit
 
 ---
 
-## Stage 13 — Keyboard shortcuts and polish
+## Stage 13 SKIP — Keyboard shortcuts and polish
 
 **Goal:** snappy daily use.
 

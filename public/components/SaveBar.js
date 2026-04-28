@@ -1,6 +1,7 @@
 import { h } from '../lib/state.js';
+import { attachMentions } from './MentionInput.js';
 
-export function SaveBar({ patch, note, onNoteInput, onSave, onDiscard, busy }) {
+export function SaveBar({ patch, note, onNoteInput, onSave, onDiscard, busy, projectId }) {
   const dirty = patch && Object.keys(patch).length > 0;
   if (!dirty) return null;
 
@@ -12,6 +13,7 @@ export function SaveBar({ patch, note, onNoteInput, onSave, onDiscard, busy }) {
     oninput: (e) => onNoteInput(e.target.value),
   });
   noteEl.value = note ?? '';
+  if (projectId) attachMentions(noteEl, { projectId });
 
   return h(
     'div',

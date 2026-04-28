@@ -1,4 +1,5 @@
 import { h } from '../lib/state.js';
+import { attachMentions } from './MentionInput.js';
 
 // Shared building blocks for displaying and editing issue fields.
 // Used by the inline editor on issue detail and by the new-issue modal.
@@ -112,7 +113,7 @@ export function NameField({ value, role, dirty, onCommit }) {
   });
 }
 
-export function DescriptionField({ value, role, dirty, onCommit }) {
+export function DescriptionField({ value, role, dirty, onCommit, projectId }) {
   const editable = canEditField(role, 'description');
   const display = h(
     'div',
@@ -140,6 +141,7 @@ export function DescriptionField({ value, role, dirty, onCommit }) {
         onblur: () => commit(ta.value),
       });
       ta.value = value ?? '';
+      if (projectId) attachMentions(ta, { projectId });
       return h(
         'div',
         { class: 'field-editor' },
@@ -290,7 +292,7 @@ export function makeNameInput({ value = '' } = {}) {
   });
 }
 
-export function makeDescriptionInput({ value = '' } = {}) {
+export function makeDescriptionInput({ value = '', projectId } = {}) {
   const ta = h('textarea', {
     name: 'description',
     class: 'field-input field-textarea',
@@ -298,6 +300,7 @@ export function makeDescriptionInput({ value = '' } = {}) {
     maxLength: 10_000,
   });
   ta.value = value;
+  if (projectId) attachMentions(ta, { projectId });
   return ta;
 }
 

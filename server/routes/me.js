@@ -4,6 +4,9 @@ import { createRequireUser } from '../middleware/requireUser.js';
 import * as users from '../services/users.js';
 import * as sessions from '../services/sessions.js';
 import * as usersDb from '../db/users.js';
+import * as notificationsDb from '../db/notifications.js';
+import * as prefsDb from '../db/notificationPrefs.js';
+import * as notificationsService from '../services/notifications.js';
 import { handleError } from './errors.js';
 
 function isSuperAdminEmail(email) {
@@ -99,6 +102,71 @@ export function createMeRouter({ db }) {
     try {
       sessions.revokeOthersForUser(db, req.user.id, req.sessionId);
       res.json({ ok: true });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  // ---------- Notifications ----------
+
+  router.get('/notifications', (req, res, next) => {
+    try {
+      const unreadOnly = req.query.unread === '1' || req.query.unread === 'true';
+      const limitRaw = Number.parseInt(req.query.limit, 10);
+      const limit = Number.isInteger(limitRaw) && limitRaw > 0 ? Math.min(limitRaw, 100) : 50;
+      const items = notificationsDb.listForUser(db, req.user.id, { unreadOnly, limit });
+      const unread = notificationsDb.unreadCount(db, req.user.id);
+      // Opportunistic recovery — flush rows the previous attempt left behind.
+      notificationsService.kickDrain(db);
+      res.json({ items, unreadCount: unread });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.post('/notifications/:id/read', (req, res, next) => {
+    try {
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'not_found' });
+      const ok = notificationsDb.markRead(db, id, req.user.id);
+      if (!ok) return res.status(404).json({ error: 'not_found' });
+      const unread = notificationsDb.unreadCount(db, req.user.id);
+      res.json({ ok: true, unreadCount: unread });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.post('/notifications/read-all', (req, res, next) => {
+    try {
+      const updated = notificationsDb.markAllRead(db, req.user.id);
+      res.json({ ok: true, updated });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.get('/notification-prefs', (req, res, next) => {
+    try {
+      res.json({ prefs: prefsDb.getAll(db, req.user.id) });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  router.patch('/notification-prefs', (req, res, next) => {
+    try {
+      const body = req.body ?? {};
+      const updates = {};
+      for (const k of prefsDb.KINDS) {
+        if (Object.prototype.hasOwnProperty.call(body, k)) {
+          updates[k] = !!body[k];
+        }
+      }
+      const extra = Object.keys(body).filter((k) => !prefsDb.KINDS.includes(k));
+      if (extra.length > 0) return res.status(400).json({ error: 'invalid_pref_kind' });
+      prefsDb.setMany(db, req.user.id, updates);
+      res.json({ prefs: prefsDb.getAll(db, req.user.id) });
     } catch (err) {
       handleError(res, next, err);
     }

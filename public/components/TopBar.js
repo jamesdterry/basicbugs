@@ -1,6 +1,7 @@
 import { h } from '../lib/state.js';
 import { postJson } from '../lib/api.js';
 import { showToast } from './Toast.js';
+import { NotificationBell } from './NotificationBell.js';
 
 export function TopBar({ user }) {
   const brand = h(
@@ -13,9 +14,10 @@ export function TopBar({ user }) {
     ? h('span', { class: 'role-badge role-badge-admin', title: 'Super admin' }, 'admin')
     : null;
 
+  const bell = NotificationBell();
   const menu = userMenu(user);
 
-  const right = h('div', { class: 'topbar-right' }, adminBadge, menu);
+  const right = h('div', { class: 'topbar-right' }, adminBadge, bell, menu);
 
   return h('div', { class: 'topbar-inner' }, brand, right);
 }

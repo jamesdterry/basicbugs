@@ -3,6 +3,7 @@ import * as historyDb from '../db/history.js';
 import * as metadataDb from '../db/metadata.js';
 import * as projectMembersDb from '../db/projectMembers.js';
 import * as usersDb from '../db/users.js';
+import * as notificationsService from './notifications.js';
 
 export class IssueError extends Error {
   constructor(code, message = code) {
@@ -190,15 +191,22 @@ export function createIssue(db, projectId, userId, role, payload = {}) {
       assignedTo: assignee?.id ?? null,
       createdBy: userId,
     });
-    historyDb.insertEvent(db, {
+    const event = historyDb.insertEvent(db, {
       issueId: row.id,
       userId,
       kind: 'creation',
       note: null,
     });
+    notificationsService.recordForCreation(db, {
+      issue: row,
+      authorId: userId,
+      historyId: event.id,
+      mentionsText: description,
+    });
     return row;
   })();
 
+  notificationsService.kickDrain(db);
   return hydrateIssue(db, issue);
 }
 
@@ -326,9 +334,17 @@ export function updateIssue(db, projectId, number, userId, role, rawPatch = {}, 
         newValue: d.newValue,
       });
     }
+    notificationsService.recordForChange(db, {
+      issue: row,
+      authorId: userId,
+      historyId: event.id,
+      diff,
+      mentionsText: note,
+    });
     return row;
   })();
 
+  notificationsService.kickDrain(db);
   return hydrateIssue(db, updated);
 }
 
@@ -337,7 +353,21 @@ export function commentIssue(db, projectId, number, userId, role, body) {
   const text = validateBody(body);
   const issue = issuesDb.getByNumber(db, projectId, number);
   if (!issue) throw new IssueError('not_found');
-  historyDb.insertEvent(db, { issueId: issue.id, userId, kind: 'comment', note: text });
+  db.transaction(() => {
+    const event = historyDb.insertEvent(db, {
+      issueId: issue.id,
+      userId,
+      kind: 'comment',
+      note: text,
+    });
+    notificationsService.recordForComment(db, {
+      issue,
+      authorId: userId,
+      historyId: event.id,
+      body: text,
+    });
+  })();
+  notificationsService.kickDrain(db);
   return hydrateIssue(db, issue);
 }
 

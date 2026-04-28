@@ -15,6 +15,9 @@ const EXPECTED_TABLES = [
   'auth_tokens',
   'sessions',
   'attachments',
+  'issue_watchers',
+  'notification_prefs',
+  'notifications',
 ];
 
 function listSchemaTables(db) {

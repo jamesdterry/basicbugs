@@ -13,7 +13,7 @@ import {
 
 export function openNewIssueModal({ project, metadata, members, role, onCreated }) {
   const nameInput = makeNameInput();
-  const descriptionInput = makeDescriptionInput();
+  const descriptionInput = makeDescriptionInput({ projectId: project?.id });
 
   const statusDefault = metadata.statuses.find((s) => s.is_default) ?? metadata.statuses[0];
   const categoryDefault = metadata.categories.find((c) => c.is_default) ?? metadata.categories[0];
