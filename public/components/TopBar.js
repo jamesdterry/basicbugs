@@ -24,7 +24,7 @@ export function TopBar({ user }) {
         try {
           await postJson('/auth/logout', {});
           location.href = '/login.html';
-        } catch (err) {
+        } catch {
           logoutBtn.disabled = false;
           showToast('Logout failed. Try again.', 'error');
         }

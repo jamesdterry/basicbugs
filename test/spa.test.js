@@ -57,7 +57,7 @@ describe('SPA shell auth gate', () => {
   });
 
   it('clears a stale session cookie and redirects to /login.html', async () => {
-    const { app, db, agent } = await newAppWithLoggedInAgent();
+    const { db, agent } = await newAppWithLoggedInAgent();
     db.prepare('DELETE FROM sessions').run();
 
     const res = await agent.get('/');
