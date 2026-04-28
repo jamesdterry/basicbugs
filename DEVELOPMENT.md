@@ -200,7 +200,7 @@ Lets a real browser drive the SPA end-to-end (so future agentic sessions can ver
 
 ---
 
-## Stage 9 — Attachments
+## Stage 9 DONE — Attachments
 
 **Goal:** issues and comments can carry files.
 

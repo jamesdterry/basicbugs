@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { uniqueSuffix } from './helpers.js';
 
 test('super admin creates a project, renames it, archives it', async ({ page }) => {
   await page.goto('/#/admin/projects');
   await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible();
 
-  const stamp = `Stage8 Test ${Date.now()}`;
+  const stamp = `Stage8 Test ${uniqueSuffix()}`;
   await page.getByRole('button', { name: 'Create project' }).click();
   await page.locator('input[aria-label="Project name"]').fill(stamp);
   await page.getByRole('button', { name: 'Create' }).last().click();

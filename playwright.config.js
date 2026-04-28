@@ -10,6 +10,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: [['list'], ['html', { open: 'never' }]],
+  // Default 5s expect timeout is too tight when several workers contend for a
+  // single SQLite-backed dev server. 15s absorbs the slowdowns without
+  // hiding genuine assertion failures.
+  expect: { timeout: 15_000 },
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',

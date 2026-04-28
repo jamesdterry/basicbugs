@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { uniqueSuffix } from './helpers.js';
 
 test.describe('Project Settings (developer view)', () => {
   test('reorders a status with the up/down buttons and persists across reload', async ({ page }) => {
@@ -44,7 +45,7 @@ test.describe('Project Settings (developer view)', () => {
     await page.getByRole('tab', { name: 'Categories' }).click();
 
     const addInput = page.locator('.metadata-add input');
-    const stamp = `Cat-${Date.now()}`;
+    const stamp = `Cat-${uniqueSuffix()}`;
     await addInput.fill(stamp);
     await page.locator('.metadata-add button', { hasText: 'Add' }).click();
     await expect(page.locator('.metadata-row').filter({ hasText: stamp })).toBeVisible();
