@@ -151,7 +151,18 @@ Let's implement paging for issues rather than a load more that just adds to the 
 
 A pre-existing flaky test in routes-issues.test.js ("user can patch name but not status") passes in isolation but occasionally flakes in the full file run — independent of this work. 
 
-Interim step: Add Playwright + chromium to allow agentic testing in browser
+## Interim step DONE — Playwright + chromium for agentic browser testing
+
+Lets a real browser drive the SPA end-to-end (so future agentic sessions can verify UI behavior, and CI catches frontend regressions vitest+supertest can't see).
+
+- `e2e/` — specs (`auth.setup`, `login`, `smoke`).
+- `playwright.config.js` — chromium-only, three projects (`setup` → `authed`, plus `unauthed`); webServer spawns `npm run start:e2e` on port 8081 against `./data/e2e.sqlite`.
+- `scripts/seed-e2e.js` — wipes + migrates + seeds developer + project + issue.
+- New CI job runs `npm run e2e` and uploads `playwright-report/` on failure.
+
+**Run locally:**
+1. `npm run e2e:install` — one-time chromium download (~150 MB).
+2. `npm run e2e` — full suite. Add `:ui` for the inspector, `:headed` for a visible browser.
 
 ---
 

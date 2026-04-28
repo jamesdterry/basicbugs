@@ -7,3 +7,7 @@ coverage/
 dist/
 .DS_Store
 *.log
+playwright-report/
+test-results/
+/.auth/*
+!/.auth/.gitkeep

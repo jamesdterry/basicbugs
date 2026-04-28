@@ -6,7 +6,7 @@ Open-source bug tracker aimed at consultants. Vanilla JS/CSS/HTML on a Node + Ex
 
 - **Server:** Node LTS, Express, `better-sqlite3`, bcrypt, nodemailer, helmet.
 - **Client:** hand-rolled vanilla ESM modules (`<script type="module">`), single `app.css`. **No build step.**
-- **Layout:** `server/{routes,services,db,middleware}`, `public/{lib,components,views}/`, `test/`, `scripts/`.
+- **Layout:** `server/{routes,services,db,middleware}`, `public/{lib,components,views}/`, `test/`, `e2e/`, `scripts/`.
 - **Frontend modules:** `public/lib/state.js` (event emitter + `h()` DOM helper), `public/lib/router.js` (hash router; add routes to its table, not ad-hoc; query string is parsed into `params.query`), `public/lib/api.js` (`getJson`/`postJson`/etc — 401 auto-redirects to `/login.html`; `qs(obj)` builds a query string), `public/lib/filters.js` (issue-list filter state + URL/`localStorage` round-trip), `public/lib/debounce.js`. Components are DOM-returning functions in `public/components/`; route views go in `public/views/`.
 - **`localStorage`:** namespace user-scoped keys as `basicbugs.<feature>.${userId}.${projectId}` (see `filters.js`).
 - **CSP:** helmet defaults block inline scripts/styles. No inline event handlers (`onclick=`), no inline `style=`, no `eval`/`new Function`. Bind events with `addEventListener` (or the `on*` keys in `h()`).
@@ -15,7 +15,7 @@ Open-source bug tracker aimed at consultants. Vanilla JS/CSS/HTML on a Node + Ex
 - **Transactions:** any multi-table write runs inside `db.transaction(...)`.
 - **Permissions:** enforced in services (not routes) so bulk/API paths reuse them.
 - **History:** services resolve FK ids to display strings before writing `issue_history_changes`.
-- **Tests:** vitest + supertest; integration tests use a fresh in-memory DB via `test/db.js`.
+- **Tests:** vitest + supertest in `test/` (fresh in-memory DB via `test/db.js`); Playwright + chromium in `e2e/` (file-backed `./data/e2e.sqlite` seeded by `scripts/seed-e2e.js`, server on `:8081` via `npm run start:e2e`, authed specs reuse `.auth/developer.json` storage state). Run e2e with `npm run e2e` (one-time `npm run e2e:install` for the browser).
 
 ## Roles
 
