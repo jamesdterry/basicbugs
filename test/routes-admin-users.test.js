@@ -196,6 +196,88 @@ describe('PATCH /api/admin/users/:id', () => {
     const res = await sa.patch('/api/admin/users/9999').send({ name: 'X' });
     expect(res.status).toBe(404);
   });
+
+  it('updates email only', async () => {
+    const { app, db } = newApp();
+    const alice = await seedUser(db, { email: 'alice@x.com', name: 'Alice' });
+    const sa = await loginAsSuperAdmin(app, db);
+    const res = await sa.patch(`/api/admin/users/${alice.id}`).send({ email: 'alice2@x.com' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe('alice2@x.com');
+    expect(res.body.user.name).toBe('Alice');
+    expect(usersDb.getById(db, alice.id).email).toBe('alice2@x.com');
+  });
+
+  it('updates name and email together', async () => {
+    const { app, db } = newApp();
+    const alice = await seedUser(db, { email: 'alice@x.com', name: 'Alice' });
+    const sa = await loginAsSuperAdmin(app, db);
+    const res = await sa
+      .patch(`/api/admin/users/${alice.id}`)
+      .send({ name: 'Alice A.', email: 'alice2@x.com' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.name).toBe('Alice A.');
+    expect(res.body.user.email).toBe('alice2@x.com');
+  });
+
+  it('rejects an invalid email', async () => {
+    const { app, db } = newApp();
+    const alice = await seedUser(db, { email: 'alice@x.com' });
+    const sa = await loginAsSuperAdmin(app, db);
+    const res = await sa.patch(`/api/admin/users/${alice.id}`).send({ email: 'not-an-email' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_email');
+  });
+
+  it('rejects an email that belongs to another user', async () => {
+    const { app, db } = newApp();
+    const alice = await seedUser(db, { email: 'alice@x.com' });
+    await seedUser(db, { email: 'bob@x.com' });
+    const sa = await loginAsSuperAdmin(app, db);
+    const res = await sa.patch(`/api/admin/users/${alice.id}`).send({ email: 'bob@x.com' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('duplicate_email');
+    expect(usersDb.getById(db, alice.id).email).toBe('alice@x.com');
+  });
+
+  it('treats a case-only email change to the user own current email as a no-op', async () => {
+    const { app, db } = newApp();
+    const alice = await seedUser(db, { email: 'alice@x.com' });
+    const sa = await loginAsSuperAdmin(app, db);
+    const res = await sa.patch(`/api/admin/users/${alice.id}`).send({ email: 'ALICE@X.com' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.email).toBe('alice@x.com');
+  });
+
+  it("refuses to change the super-admin's email", async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const adminRow = usersDb.getByEmail(db, config.superAdminEmail);
+    const res = await sa
+      .patch(`/api/admin/users/${adminRow.id}`)
+      .send({ email: 'newadmin@x.com' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('forbidden');
+    expect(usersDb.getById(db, adminRow.id).email).toBe(config.superAdminEmail);
+  });
+
+  it("still allows renaming the super-admin", async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const adminRow = usersDb.getByEmail(db, config.superAdminEmail);
+    const res = await sa.patch(`/api/admin/users/${adminRow.id}`).send({ name: 'Boss' });
+    expect(res.status).toBe(200);
+    expect(res.body.user.name).toBe('Boss');
+  });
+
+  it('rejects an empty body', async () => {
+    const { app, db } = newApp();
+    const alice = await seedUser(db, { email: 'alice@x.com' });
+    const sa = await loginAsSuperAdmin(app, db);
+    const res = await sa.patch(`/api/admin/users/${alice.id}`).send({});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('invalid_body');
+  });
 });
 
 describe('Disable / enable / sign-out-everywhere', () => {

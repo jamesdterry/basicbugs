@@ -25,6 +25,10 @@ export function setName(db, userId, name) {
   db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name, userId);
 }
 
+export function setEmail(db, userId, email) {
+  db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email, userId);
+}
+
 export function setDisabled(db, userId, isDisabled) {
   db.prepare('UPDATE users SET is_disabled = ? WHERE id = ?').run(isDisabled ? 1 : 0, userId);
 }

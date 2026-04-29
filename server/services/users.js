@@ -56,10 +56,33 @@ export function getById(db, userId) {
 }
 
 export function updateName(db, userId, name) {
-  const cleanName = validateName(name);
+  return updateProfile(db, userId, { name });
+}
+
+export function updateProfile(db, userId, { name, email } = {}) {
+  const wantsName = name !== undefined;
+  const wantsEmail = email !== undefined;
+  if (!wantsName && !wantsEmail) throw new UserError('invalid_body');
+
   const existing = usersDb.getById(db, userId);
   if (!existing) throw new UserError('not_found');
-  usersDb.setName(db, userId, cleanName);
+
+  const cleanName = wantsName ? validateName(name) : null;
+  let cleanEmail = null;
+  if (wantsEmail) {
+    cleanEmail = validateEmail(email);
+    if (cleanEmail !== existing.email.toLowerCase()) {
+      const clash = usersDb.getByEmail(db, cleanEmail);
+      if (clash && clash.id !== userId) throw new UserError('duplicate_email');
+    }
+  }
+
+  db.transaction(() => {
+    if (wantsName) usersDb.setName(db, userId, cleanName);
+    if (wantsEmail && cleanEmail !== existing.email) {
+      usersDb.setEmail(db, userId, cleanEmail);
+    }
+  })();
   return getById(db, userId);
 }
 

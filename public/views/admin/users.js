@@ -101,7 +101,7 @@ function userRow(user, reload) {
       {
         type: 'button',
         class: 'rename-display',
-        onClick: () => openEditNameModal(user, reload),
+        onClick: () => openEditUserModal(user, reload),
       },
       user.name || h('span', { class: 'muted' }, '(no name)'),
     ),
@@ -187,41 +187,91 @@ function userRow(user, reload) {
   );
 }
 
-function openEditNameModal(user, reload) {
-  const input = h('input', {
+function openEditUserModal(user, reload) {
+  const nameInput = h('input', {
     type: 'text',
     class: 'field-input',
     value: user.name ?? '',
     maxlength: '80',
     'aria-label': 'Display name',
   });
+  const emailInput = h('input', {
+    type: 'email',
+    class: 'field-input',
+    value: user.email ?? '',
+    maxlength: '254',
+    'aria-label': 'Email',
+    disabled: user.is_super_admin,
+  });
+  const body = h(
+    'div',
+    { class: 'me-form' },
+    h('label', {}, 'Name'),
+    nameInput,
+    h('label', {}, 'Email'),
+    emailInput,
+  );
+  if (user.is_super_admin) {
+    body.append(
+      h('p', { class: 'muted' }, "The super-admin's email is set via SUPER_ADMIN_EMAIL and cannot be changed here."),
+    );
+  }
   openModal({
-    title: `Edit name — ${user.email}`,
-    body: h('div', { class: 'me-form' }, h('label', {}, 'Name'), input),
+    title: 'Edit user',
+    body,
     actions: [
       { label: 'Cancel' },
       {
         label: 'Save',
         kind: 'primary',
         onClick: async (close) => {
-          const name = input.value.trim().replace(/\s+/g, ' ');
+          const name = nameInput.value.trim().replace(/\s+/g, ' ');
+          const email = emailInput.value.trim().toLowerCase();
           if (!name) {
             showToast('Name cannot be empty', 'error');
             return;
           }
+          if (!email) {
+            showToast('Email cannot be empty', 'error');
+            return;
+          }
+          const payload = {};
+          if (name !== (user.name ?? '')) payload.name = name;
+          if (!user.is_super_admin && email !== (user.email ?? '').toLowerCase()) {
+            payload.email = email;
+          }
+          if (!Object.keys(payload).length) {
+            close();
+            return;
+          }
           try {
-            await patchJson(`/api/admin/users/${user.id}`, { name });
+            await patchJson(`/api/admin/users/${user.id}`, payload);
             close();
             showToast('Saved', 'info');
             reload();
           } catch (err) {
-            showToast(err?.message ?? 'Save failed', 'error');
+            showToast(editUserErrorMessage(err), 'error');
           }
         },
       },
     ],
   });
-  queueMicrotask(() => input.focus());
+  queueMicrotask(() => nameInput.focus());
+}
+
+function editUserErrorMessage(err) {
+  switch (err?.message) {
+    case 'invalid_email':
+      return 'Invalid email';
+    case 'duplicate_email':
+      return 'Email already in use';
+    case 'invalid_name':
+      return 'Invalid name';
+    case 'forbidden':
+      return "Cannot change the super-admin's email";
+    default:
+      return err?.message ?? 'Save failed';
+  }
 }
 
 async function openInviteModal(reload) {

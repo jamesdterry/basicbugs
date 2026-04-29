@@ -107,7 +107,16 @@ export function createAdminRouter({ db }) {
     try {
       const id = parseId(req.params.id);
       if (!id) return res.status(404).json({ error: 'not_found' });
-      const updated = users.updateName(db, id, req.body?.name);
+      if (req.body?.email !== undefined) {
+        const target = usersDb.getById(db, id);
+        if (target && isSuperAdminEmail(target.email)) {
+          return res.status(403).json({ error: 'forbidden' });
+        }
+      }
+      const updated = users.updateProfile(db, id, {
+        name: req.body?.name,
+        email: req.body?.email,
+      });
       res.json({ user: publicUser(updated) });
     } catch (err) {
       handleError(res, next, err);
