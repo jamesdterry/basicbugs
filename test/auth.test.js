@@ -8,6 +8,7 @@ import * as tokensSvc from '../server/services/tokens.js';
 import * as usersDb from '../server/db/users.js';
 import {
   _bucketCountForTests as rateLimitBucketCount,
+  _bucketKeysForTests as rateLimitBucketKeys,
   _pruneForTests as pruneRateLimit,
   _resetForTests as resetRateLimit,
 } from '../server/middleware/rateLimit.js';
@@ -445,5 +446,22 @@ describe('Rate limiting', () => {
 
     pruneRateLimit(Date.now() + 15 * 60 * 1000 + 1000);
     expect(rateLimitBucketCount()).toBe(0);
+  });
+
+  it('re-hitting a bucket moves it to the back of the eviction queue (LRU)', async () => {
+    const { app } = newApp();
+    await request(app).post('/auth/magic-link').send({ email: 'a@example.com' });
+    await request(app).post('/auth/magic-link').send({ email: 'b@example.com' });
+    const before = rateLimitBucketKeys();
+    const aIdx = before.findIndex((k) => k.endsWith(':a@example.com'));
+    const bIdx = before.findIndex((k) => k.endsWith(':b@example.com'));
+    expect(aIdx).toBeLessThan(bIdx);
+
+    await request(app).post('/auth/magic-link').send({ email: 'a@example.com' });
+    const after = rateLimitBucketKeys();
+    const aIdx2 = after.findIndex((k) => k.endsWith(':a@example.com'));
+    const bIdx2 = after.findIndex((k) => k.endsWith(':b@example.com'));
+    // a was just touched, so it should now sit AFTER b in iteration order.
+    expect(aIdx2).toBeGreaterThan(bIdx2);
   });
 });

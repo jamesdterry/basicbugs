@@ -3,7 +3,8 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import request from 'supertest';
 import { createApp } from '../server/app.js';
-import { partialUploadPath } from '../server/routes/attachments.js';
+import fs from 'node:fs';
+import { partialUploadPath, sweepPartialUploads } from '../server/routes/attachments.js';
 import { createTestDb } from './db.js';
 import { config } from '../server/config.js';
 import { hash } from '../server/services/passwords.js';
@@ -70,6 +71,28 @@ async function setupProjectWith(role) {
   const aliceAgent = await loggedIn(app, 'alice@x.com');
   return { app, db, sa, alice, aliceAgent, project };
 }
+
+describe('sweepPartialUploads', () => {
+  it('returns 0 when the .tmp directory does not exist', async () => {
+    expect(await sweepPartialUploads()).toBe(0);
+  });
+
+  it('removes orphan *.partial files and leaves other files alone', async () => {
+    const tmpDir = path.join(TEST_DIR, '.tmp');
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const orphan1 = path.join(tmpDir, 'a.partial');
+    const orphan2 = path.join(tmpDir, 'b.partial');
+    const keep = path.join(tmpDir, 'README');
+    fs.writeFileSync(orphan1, 'x');
+    fs.writeFileSync(orphan2, 'y');
+    fs.writeFileSync(keep, 'z');
+
+    expect(await sweepPartialUploads()).toBe(2);
+    expect(fs.existsSync(orphan1)).toBe(false);
+    expect(fs.existsSync(orphan2)).toBe(false);
+    expect(fs.existsSync(keep)).toBe(true);
+  });
+});
 
 describe('POST /api/projects/:id/issues/:number/attachments', () => {
   it('keeps partial upload files under ATTACHMENTS_DIR', () => {

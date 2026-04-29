@@ -95,6 +95,10 @@ export function _bucketCountForTests() {
   return buckets.size;
 }
 
+export function _bucketKeysForTests() {
+  return [...buckets.keys()];
+}
+
 export function _pruneForTests(now = Date.now()) {
   prune(now);
 }

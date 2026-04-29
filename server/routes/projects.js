@@ -232,6 +232,11 @@ export function createProjectsRouter({ db }) {
         }
 
         const projectId = req.project.id;
+        const existing = metadataDb.getById(db, kind, itemId);
+        if (!existing || existing.project_id !== projectId) {
+          return res.status(404).json({ error: 'not_found' });
+        }
+
         const body = req.body ?? {};
 
         db.transaction(() => {
@@ -250,9 +255,6 @@ export function createProjectsRouter({ db }) {
         })();
 
         const item = metadataDb.getById(db, kind, itemId);
-        if (!item || item.project_id !== projectId) {
-          return res.status(404).json({ error: 'not_found' });
-        }
         res.json({ item });
       } catch (err) {
         handleError(res, next, err);
