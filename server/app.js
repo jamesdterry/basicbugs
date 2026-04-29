@@ -20,6 +20,25 @@ import * as errorLog from './db/errorLog.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 const INDEX_HTML = path.join(PUBLIC_DIR, 'index.html');
+const SENSITIVE_QUERY_KEYS = new Set(['token', 'code', 'password', 'email']);
+
+export function redactUrl(rawUrl) {
+  if (!rawUrl) return rawUrl;
+  try {
+    const url = new URL(rawUrl, 'http://basicbugs.local');
+    for (const key of [...url.searchParams.keys()]) {
+      if (SENSITIVE_QUERY_KEYS.has(key.toLowerCase())) {
+        url.searchParams.set(key, '[redacted]');
+      }
+    }
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return String(rawUrl).replace(
+      /([?&](?:token|code|password|email)=)[^&#]*/gi,
+      '$1[redacted]',
+    );
+  }
+}
 
 export function createApp({ db } = {}) {
   const dbHandle = db ?? getDb();
@@ -38,7 +57,7 @@ export function createApp({ db } = {}) {
           return 'info';
         },
         serializers: {
-          req: (req) => ({ method: req.method, url: req.url }),
+          req: (req) => ({ method: req.method, url: redactUrl(req.url) }),
           res: (res) => ({ statusCode: res.statusCode }),
         },
       }),
@@ -85,7 +104,7 @@ export function createApp({ db } = {}) {
     try {
       errorLog.record(dbHandle, {
         method: req.method,
-        route: req.originalUrl,
+        route: redactUrl(req.originalUrl),
         status: 500,
         userId: req.user?.id ?? null,
         message: err?.message ?? String(err),

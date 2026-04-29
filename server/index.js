@@ -2,6 +2,7 @@ import { createApp } from './app.js';
 import { config } from './config.js';
 import { logger } from './logger.js';
 import { kickDrain } from './services/notifications.js';
+import { sweepPartialUploads } from './routes/attachments.js';
 import { getDb } from './db/connection.js';
 import * as errorLog from './db/errorLog.js';
 
@@ -27,6 +28,11 @@ app.listen(config.port, () => {
   kickDrain();
   pruneErrorLog();
   setInterval(pruneErrorLog, PRUNE_INTERVAL_MS).unref();
+  sweepPartialUploads()
+    .then((n) => {
+      if (n > 0) logger.info(`Removed ${n} orphan attachment partial(s) from .tmp`);
+    })
+    .catch((err) => logger.error('sweepPartialUploads failed', err));
 });
 
 process.on('unhandledRejection', (reason) => {

@@ -80,15 +80,16 @@ test('1.0 smoke: super admin onboards a new user end-to-end', async ({ browser }
 
     // 4. Pull the magic-link URL out of the email log.
     const email = await waitForEmail(newEmail, offset);
-    const link = email.links.find((u) => u.includes('/auth/verify?token='));
+    const link = email.links.find((u) => u.includes('/verify.html?token='));
     expect(link, 'magic-link URL present in invite email').toBeTruthy();
 
     // The dev base URL is http://localhost:8080 (from server config), but the
     // e2e server listens on :8081. Rewrite to the e2e port.
     const verifyUrl = link.replace('http://localhost:8080', 'http://localhost:8081');
 
-    // 5. Brand-new browser context follows the link → ends up logged in.
+    // 5. Brand-new browser context follows the link and confirms sign-in.
     await userPage.goto(verifyUrl);
+    await userPage.getByRole('button', { name: 'Sign in' }).click();
     await userPage.waitForURL('http://localhost:8081/');
     await expect(userPage.locator('#topbar')).toBeVisible();
 

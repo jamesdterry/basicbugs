@@ -35,25 +35,28 @@ function combineCandidates(candidates) {
   return [...best.values()];
 }
 
-function persistNotifications(db, { issueId, historyId, authorId, candidates }) {
-  const merged = combineCandidates(candidates).filter((c) => c.userId !== authorId);
+function persistNotifications(db, { issue, historyId, authorId, candidates }) {
+  const merged = combineCandidates(candidates).filter(
+    (c) => c.userId !== authorId && isProjectMember(db, issue.project_id, c.userId),
+  );
   for (const c of merged) {
     if (!prefsDb.isEnabled(db, c.userId, c.kind)) continue;
     notificationsDb.insert(db, {
       userId: c.userId,
-      issueId,
+      issueId: issue.id,
       historyId,
       kind: c.kind,
     });
   }
 }
 
-function watcherIds(db, issueId, excludeUserId) {
-  const rows = watchersDb.listForIssue(db, issueId);
+function watcherIds(db, issue, excludeUserId) {
+  const rows = watchersDb.listForIssue(db, issue.id);
   const out = [];
   for (const r of rows) {
     if (r.is_disabled) continue;
     if (r.user_id === excludeUserId) continue;
+    if (!isProjectMember(db, issue.project_id, r.user_id)) continue;
     out.push(r.user_id);
   }
   return out;
@@ -78,7 +81,7 @@ export function recordForCreation(db, { issue, authorId, historyId, mentionsText
     const mentions = resolveMentions(db, issue.project_id, mentionsText);
     for (const m of mentions) candidates.push({ userId: m.userId, kind: 'mentioned' });
   }
-  persistNotifications(db, { issueId: issue.id, historyId, authorId, candidates });
+  persistNotifications(db, { issue, historyId, authorId, candidates });
 }
 
 export function recordForChange(db, { issue, authorId, historyId, diff, mentionsText }) {
@@ -96,7 +99,7 @@ export function recordForChange(db, { issue, authorId, historyId, diff, mentions
 
   // Watchers receive a watched_* notification scaled by what changed.
   const watchKind = statusChanged(diff) ? 'watched_status_change' : 'watched_any_change';
-  for (const id of watcherIds(db, issue.id, authorId)) {
+  for (const id of watcherIds(db, issue, authorId)) {
     candidates.push({ userId: id, kind: watchKind });
   }
 
@@ -105,7 +108,7 @@ export function recordForChange(db, { issue, authorId, historyId, diff, mentions
     for (const m of mentions) candidates.push({ userId: m.userId, kind: 'mentioned' });
   }
 
-  persistNotifications(db, { issueId: issue.id, historyId, authorId, candidates });
+  persistNotifications(db, { issue, historyId, authorId, candidates });
 }
 
 export function recordForComment(db, { issue, authorId, historyId, body }) {
@@ -118,22 +121,16 @@ export function recordForComment(db, { issue, authorId, historyId, body }) {
     candidates.push({ userId: issue.assigned_to, kind: 'watched_any_change' });
   }
 
-  for (const id of watcherIds(db, issue.id, authorId)) {
+  for (const id of watcherIds(db, issue, authorId)) {
     candidates.push({ userId: id, kind: 'watched_any_change' });
   }
 
   if (body) {
     const mentions = resolveMentions(db, issue.project_id, body);
-    for (const m of mentions) {
-      // Only mention members; non-members would already be filtered by resolveMentions.
-      // Skip if mentioned user is not a project member (defensive).
-      if (isProjectMember(db, issue.project_id, m.userId)) {
-        candidates.push({ userId: m.userId, kind: 'mentioned' });
-      }
-    }
+    for (const m of mentions) candidates.push({ userId: m.userId, kind: 'mentioned' });
   }
 
-  persistNotifications(db, { issueId: issue.id, historyId, authorId, candidates });
+  persistNotifications(db, { issue, historyId, authorId, candidates });
 }
 
 // ---------- Drain ----------

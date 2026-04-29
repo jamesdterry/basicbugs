@@ -113,10 +113,16 @@ export function createAuthRouter({ db }) {
     }
   });
 
-  router.get('/verify', (req, res, next) => {
+  router.get('/verify', (req, res) => {
+    const raw = typeof req.query.token === 'string' ? req.query.token : '';
+    if (!raw) return res.redirect('/login.html?error=invalid_link');
+    res.redirect(`/verify.html?token=${encodeURIComponent(raw)}`);
+  });
+
+  router.post('/verify', (req, res, next) => {
     try {
-      const raw = typeof req.query.token === 'string' ? req.query.token : '';
-      if (!raw) return res.redirect('/login.html?error=invalid_link');
+      const raw = typeof req.body?.token === 'string' ? req.body.token : '';
+      if (!raw) return res.status(400).json({ error: 'invalid_link' });
       const hash = tokens.hashRaw(raw);
 
       const sessionResult = db.transaction(() => {
@@ -130,9 +136,9 @@ export function createAuthRouter({ db }) {
         });
       })();
 
-      if (!sessionResult) return res.redirect('/login.html?error=invalid_link');
+      if (!sessionResult) return res.status(400).json({ error: 'invalid_link' });
       setSessionCookie(res, sessionResult.id);
-      res.redirect('/');
+      res.json({ ok: true });
     } catch (err) {
       next(err);
     }

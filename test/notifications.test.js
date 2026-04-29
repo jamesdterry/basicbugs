@@ -117,6 +117,14 @@ describe('resolveMentions', () => {
     // "Dave Davidson" has a space — does not match.
     expect(resolveMentions(db, project.id, '@dave')).toEqual([]);
   });
+
+  it('does not resolve removed project members', () => {
+    const db = createTestDb();
+    const { project } = seedProject(db);
+    const alice = addMember(db, project, 'alice@x.com');
+    projectMembersDb.remove(db, project.id, alice.id);
+    expect(resolveMentions(db, project.id, '@alice')).toEqual([]);
+  });
 });
 
 describe('recordForCreation', () => {
@@ -241,6 +249,28 @@ describe('recordForChange', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].kind).toBe('mentioned');
   });
+
+  it('does not notify a watcher after their project membership is removed', () => {
+    const db = createTestDb();
+    const { project, owner } = seedProject(db);
+    const alice = addMember(db, project, 'alice@x.com');
+    const issue = makeIssue(db, { project, author: owner });
+    watchersDb.add(db, issue.id, alice.id);
+    projectMembersDb.remove(db, project.id, alice.id);
+    const event = historyDb.insertEvent(db, {
+      issueId: issue.id,
+      userId: owner.id,
+      kind: 'change',
+    });
+    recordForChange(db, {
+      issue,
+      authorId: owner.id,
+      historyId: event.id,
+      diff: [{ field: 'name', oldValue: 'A', newValue: 'B' }],
+      mentionsText: null,
+    });
+    expect(notificationsDb.listForUser(db, alice.id)).toEqual([]);
+  });
 });
 
 describe('recordForComment', () => {
@@ -290,6 +320,27 @@ describe('recordForComment', () => {
       body: 'hi',
     });
     expect(watchersDb.isWatching(db, issue.id, alice.id)).toBe(true);
+  });
+
+  it('does not notify a stale assignee after their project membership is removed', () => {
+    const db = createTestDb();
+    const { project, owner } = seedProject(db);
+    const alice = addMember(db, project, 'alice@x.com');
+    const issue = makeIssue(db, { project, author: owner, assignee: alice });
+    projectMembersDb.remove(db, project.id, alice.id);
+    const event = historyDb.insertEvent(db, {
+      issueId: issue.id,
+      userId: owner.id,
+      kind: 'comment',
+      note: 'still private',
+    });
+    recordForComment(db, {
+      issue,
+      authorId: owner.id,
+      historyId: event.id,
+      body: 'still private',
+    });
+    expect(notificationsDb.listForUser(db, alice.id)).toEqual([]);
   });
 });
 

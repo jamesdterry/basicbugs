@@ -6,7 +6,11 @@ import { config } from '../server/config.js';
 import { hash } from '../server/services/passwords.js';
 import * as tokensSvc from '../server/services/tokens.js';
 import * as usersDb from '../server/db/users.js';
-import { _resetForTests as resetRateLimit } from '../server/middleware/rateLimit.js';
+import {
+  _bucketCountForTests as rateLimitBucketCount,
+  _pruneForTests as pruneRateLimit,
+  _resetForTests as resetRateLimit,
+} from '../server/middleware/rateLimit.js';
 
 function newApp() {
   resetRateLimit();
@@ -81,10 +85,29 @@ describe('POST /auth/magic-link — bootstrap and anti-leakage', () => {
   });
 });
 
-describe('GET /auth/verify', () => {
+describe('POST /auth/verify', () => {
   beforeEach(() => resetRateLimit());
 
-  it('consumes a magic-link token, sets a session cookie, and redirects to /', async () => {
+  it('GET redirects old magic-link URLs to the confirmation page without consuming the token', async () => {
+    const { app, db } = newApp();
+    const user = usersDb.create(db, { email: 'a@example.com' });
+    const t = tokensSvc.generate();
+    db.prepare(
+      `INSERT INTO auth_tokens (user_id, purpose, token_hash, expires_at)
+       VALUES (?, 'magic_link', ?, ?)`,
+    ).run(user.id, t.hash, new Date(Date.now() + 60_000).toISOString());
+
+    const res = await request(app).get(`/auth/verify?token=${encodeURIComponent(t.raw)}`);
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe(`/verify.html?token=${encodeURIComponent(t.raw)}`);
+    expect(getSessionCookie(res)).toBeNull();
+
+    const tokenRow = db.prepare('SELECT * FROM auth_tokens').get();
+    expect(tokenRow.used_at).toBeNull();
+    expect(db.prepare('SELECT COUNT(*) as n FROM sessions').get().n).toBe(0);
+  });
+
+  it('consumes a magic-link token, sets a session cookie, and returns ok', async () => {
     const { app, db } = newApp();
     await request(app).post('/auth/magic-link').send({ email: config.superAdminEmail });
 
@@ -97,9 +120,9 @@ describe('GET /auth/verify', () => {
        VALUES (?, 'magic_link', ?, ?)`,
     ).run(userId, t.hash, new Date(Date.now() + 60_000).toISOString());
 
-    const res = await request(app).get(`/auth/verify?token=${encodeURIComponent(t.raw)}`);
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/');
+    const res = await request(app).post('/auth/verify').send({ token: t.raw });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
     expect(getSessionCookie(res)).toBeTruthy();
 
     const sessions = db.prepare('SELECT * FROM sessions').all();
@@ -119,13 +142,13 @@ describe('GET /auth/verify', () => {
        VALUES (?, 'magic_link', ?, ?)`,
     ).run(user.id, t.hash, new Date(Date.now() + 60_000).toISOString());
 
-    const r1 = await request(app).get(`/auth/verify?token=${encodeURIComponent(t.raw)}`);
-    expect(r1.status).toBe(302);
-    expect(r1.headers.location).toBe('/');
+    const r1 = await request(app).post('/auth/verify').send({ token: t.raw });
+    expect(r1.status).toBe(200);
+    expect(r1.body).toEqual({ ok: true });
 
-    const r2 = await request(app).get(`/auth/verify?token=${encodeURIComponent(t.raw)}`);
-    expect(r2.status).toBe(302);
-    expect(r2.headers.location).toBe('/login.html?error=invalid_link');
+    const r2 = await request(app).post('/auth/verify').send({ token: t.raw });
+    expect(r2.status).toBe(400);
+    expect(r2.body).toEqual({ error: 'invalid_link' });
   });
 
   it('rejects an expired token', async () => {
@@ -137,21 +160,27 @@ describe('GET /auth/verify', () => {
        VALUES (?, 'magic_link', ?, ?)`,
     ).run(user.id, t.hash, new Date(Date.now() - 1000).toISOString());
 
-    const res = await request(app).get(`/auth/verify?token=${encodeURIComponent(t.raw)}`);
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe('/login.html?error=invalid_link');
+    const res = await request(app).post('/auth/verify').send({ token: t.raw });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'invalid_link' });
   });
 
   it('rejects an unknown token', async () => {
     const { app } = newApp();
-    const res = await request(app).get('/auth/verify?token=not-a-real-token');
-    expect(res.headers.location).toBe('/login.html?error=invalid_link');
+    const res = await request(app).post('/auth/verify').send({ token: 'not-a-real-token' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'invalid_link' });
   });
 
   it('rejects a missing token', async () => {
     const { app } = newApp();
-    const res = await request(app).get('/auth/verify');
-    expect(res.headers.location).toBe('/login.html?error=invalid_link');
+    const get = await request(app).get('/auth/verify');
+    expect(get.status).toBe(302);
+    expect(get.headers.location).toBe('/login.html?error=invalid_link');
+
+    const post = await request(app).post('/auth/verify').send({});
+    expect(post.status).toBe(400);
+    expect(post.body).toEqual({ error: 'invalid_link' });
   });
 });
 
@@ -406,5 +435,15 @@ describe('Rate limiting', () => {
       .post('/auth/magic-link')
       .send({ email: 'u5@example.com' });
     expect(sixth.status).toBe(429);
+  });
+
+  it('evicts idle buckets after they fully refill', async () => {
+    const { app } = newApp();
+    const r = await request(app).post('/auth/magic-link').send({ email: 'idle@example.com' });
+    expect(r.status).toBe(200);
+    expect(rateLimitBucketCount()).toBeGreaterThan(0);
+
+    pruneRateLimit(Date.now() + 15 * 60 * 1000 + 1000);
+    expect(rateLimitBucketCount()).toBe(0);
   });
 });

@@ -22,7 +22,7 @@ export async function sendMagicLink(db, user) {
       ttlMs: MAGIC_LINK_TTL_MS,
     }),
   )();
-  const url = `${config.baseUrl}/auth/verify?token=${encodeURIComponent(raw)}`;
+  const url = `${config.baseUrl}/verify.html?token=${encodeURIComponent(raw)}`;
   const tmpl = email.magicLinkEmail({ url });
   await email.send({ to: user.email, ...tmpl });
 }

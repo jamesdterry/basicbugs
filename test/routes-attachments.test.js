@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import request from 'supertest';
 import { createApp } from '../server/app.js';
+import { partialUploadPath } from '../server/routes/attachments.js';
 import { createTestDb } from './db.js';
 import { config } from '../server/config.js';
 import { hash } from '../server/services/passwords.js';
@@ -71,6 +72,11 @@ async function setupProjectWith(role) {
 }
 
 describe('POST /api/projects/:id/issues/:number/attachments', () => {
+  it('keeps partial upload files under ATTACHMENTS_DIR', () => {
+    const partial = partialUploadPath('test-id');
+    expect(path.relative(TEST_DIR, partial)).toBe(path.join('.tmp', 'test-id.partial'));
+  });
+
   it('uploads a PNG and returns 201', async () => {
     const { aliceAgent, project } = await setupProjectWith('user');
     const issue = await makeIssue(aliceAgent, project.id);

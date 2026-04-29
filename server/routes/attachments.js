@@ -2,9 +2,9 @@ import express from 'express';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import Busboy from 'busboy';
+import { config } from '../config.js';
 import { createRequireUser } from '../middleware/requireUser.js';
 import * as attachments from '../services/attachments.js';
 import * as issuesDb from '../db/issues.js';
@@ -14,6 +14,29 @@ const ALLOWED_INLINE_PREFIXES = ['image/', 'application/pdf'];
 
 function inlineDisposition(contentType) {
   return ALLOWED_INLINE_PREFIXES.some((p) => contentType.startsWith(p));
+}
+
+export function partialUploadPath(id = crypto.randomUUID()) {
+  return path.join(path.resolve(config.attachmentsDir, '.tmp'), `${id}.partial`);
+}
+
+export async function sweepPartialUploads() {
+  const dir = path.resolve(config.attachmentsDir, '.tmp');
+  let entries;
+  try {
+    entries = await fsp.readdir(dir);
+  } catch (err) {
+    if (err.code === 'ENOENT') return 0;
+    throw err;
+  }
+  let removed = 0;
+  for (const name of entries) {
+    if (!name.endsWith('.partial')) continue;
+    await fsp.unlink(path.join(dir, name)).then(() => {
+      removed++;
+    }).catch(() => {});
+  }
+  return removed;
 }
 
 // RFC 5987 ext-value encoding for the `filename*` param. Falls back to a
@@ -98,8 +121,8 @@ export function createIssueAttachmentsRouter({ db }) {
       }
 
       const safeName = attachments.safeFilename(info.filename ?? 'file');
-      const tmpName = `${crypto.randomUUID()}.partial`;
-      partialPath = path.join(os.tmpdir(), tmpName);
+      partialPath = partialUploadPath();
+      fs.mkdirSync(path.dirname(partialPath), { recursive: true });
 
       const writeStream = fs.createWriteStream(partialPath);
       let firstChunk = null;

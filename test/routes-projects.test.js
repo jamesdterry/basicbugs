@@ -342,6 +342,19 @@ describe('Metadata routes', () => {
     expect(r.body.error).toBe('duplicate_name');
   });
 
+  it('does not return metadata from another project on no-op patch', async () => {
+    const { sa, aliceAgent, project } = await setupProjectWithMember('developer');
+    const other = await makeProject(sa, 'Other');
+    const otherStatuses = await sa.get(`/api/projects/${other.id}/metadata/statuses`);
+    const foreignStatus = otherStatuses.body.items[0];
+
+    const r = await aliceAgent
+      .patch(`/api/projects/${project.id}/metadata/statuses/${foreignStatus.id}`)
+      .send({});
+    expect(r.status).toBe(404);
+    expect(r.body.error).toBe('not_found');
+  });
+
   it('invalid kind returns 404', async () => {
     const { aliceAgent, project } = await setupProjectWithMember('viewer');
     const r = await aliceAgent.get(`/api/projects/${project.id}/metadata/wat`);

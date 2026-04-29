@@ -250,6 +250,9 @@ export function createProjectsRouter({ db }) {
         })();
 
         const item = metadataDb.getById(db, kind, itemId);
+        if (!item || item.project_id !== projectId) {
+          return res.status(404).json({ error: 'not_found' });
+        }
         res.json({ item });
       } catch (err) {
         handleError(res, next, err);
