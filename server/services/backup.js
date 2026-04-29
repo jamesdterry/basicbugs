@@ -94,6 +94,7 @@ export async function putAttachment(relPath, source, contentType) {
     Body,
     ContentLength,
     ContentType: contentType,
+    ACL: 'private',
   });
   await withTimeout(getClient().send(cmd), `S3 putAttachment(${relPath})`);
 }
@@ -142,6 +143,7 @@ export async function putSnapshot(localPath, key) {
     Body,
     ContentLength: stat.size,
     ContentType: 'application/x-sqlite3',
+    ACL: 'private',
   });
   await withTimeout(getClient().send(cmd), `S3 putSnapshot(${path.basename(localPath)})`);
 }

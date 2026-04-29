@@ -23,7 +23,10 @@ export function findActiveByHash(db, tokenHash, purpose, now = new Date().toISOS
 }
 
 export function markUsed(db, tokenId, when = new Date().toISOString()) {
-  db.prepare('UPDATE auth_tokens SET used_at = ? WHERE id = ?').run(when, tokenId);
+  const info = db
+    .prepare('UPDATE auth_tokens SET used_at = ? WHERE id = ? AND used_at IS NULL')
+    .run(when, tokenId);
+  return info.changes === 1;
 }
 
 export function deleteForUser(db, userId, purpose) {

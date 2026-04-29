@@ -154,6 +154,10 @@ export function createAdminRouter({ db }) {
     try {
       const id = parseId(req.params.id);
       if (!id) return res.status(404).json({ error: 'not_found' });
+      const target = usersDb.getById(db, id);
+      if (target && isSuperAdminEmail(target.email)) {
+        return res.status(403).json({ error: 'forbidden' });
+      }
       const updated = db.transaction(() => {
         const result = users.setDisabled(db, id, true);
         adminAudit.log(db, req, {

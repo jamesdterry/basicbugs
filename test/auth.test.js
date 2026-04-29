@@ -334,6 +334,46 @@ describe('Password reset flow', () => {
     expect(res.status).toBe(200);
     expect(db.prepare('SELECT COUNT(*) as n FROM auth_tokens').get().n).toBe(0);
   });
+
+  it('a reset token cannot be consumed twice (CAS prevents double-use)', async () => {
+    const { app, db } = newApp();
+    const user = usersDb.create(db, { email: 'a@example.com' });
+    const t = tokensSvc.generate();
+    db.prepare(
+      `INSERT INTO auth_tokens (user_id, purpose, token_hash, expires_at)
+       VALUES (?, 'password_reset', ?, ?)`,
+    ).run(user.id, t.hash, new Date(Date.now() + 60_000).toISOString());
+
+    const first = await request(app)
+      .post('/auth/reset')
+      .send({ token: t.raw, password: 'new-pwd-good-1' });
+    expect(first.status).toBe(200);
+
+    const second = await request(app)
+      .post('/auth/reset')
+      .send({ token: t.raw, password: 'new-pwd-good-2' });
+    expect(second.status).toBe(400);
+    expect(second.body).toEqual({ error: 'invalid_token' });
+  });
+});
+
+describe('Rate limiting on /auth/reset', () => {
+  beforeEach(() => resetRateLimit());
+
+  it('returns 429 after 5 reset attempts from the same IP', async () => {
+    const { app } = newApp();
+    for (let i = 0; i < 5; i++) {
+      const r = await request(app)
+        .post('/auth/reset')
+        .send({ token: `bogus-${i}`, password: 'long-enough-pwd' });
+      expect(r.status).toBe(400);
+    }
+    const sixth = await request(app)
+      .post('/auth/reset')
+      .send({ token: 'bogus-6', password: 'long-enough-pwd' });
+    expect(sixth.status).toBe(429);
+    expect(sixth.body).toEqual({ error: 'rate_limited' });
+  });
 });
 
 describe('Rate limiting', () => {

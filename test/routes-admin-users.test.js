@@ -311,6 +311,17 @@ describe('Disable / enable / sign-out-everywhere', () => {
     expect(login2.status).toBe(200);
   });
 
+  it('refuses to disable the super-admin account', async () => {
+    const { app, db } = newApp();
+    const sa = await loginAsSuperAdmin(app, db);
+    const admin = usersDb.getByEmail(db, config.superAdminEmail);
+
+    const res = await sa.post(`/api/admin/users/${admin.id}/disable`);
+    expect(res.status).toBe(403);
+    expect(res.body).toEqual({ error: 'forbidden' });
+    expect(usersDb.getById(db, admin.id).is_disabled).toBe(0);
+  });
+
   it('sign-out-everywhere revokes all of one user\'s sessions', async () => {
     const { app, db } = newApp();
     await seedUser(db, { email: 'alice@x.com' });

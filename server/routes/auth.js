@@ -52,6 +52,7 @@ export function createAuthRouter({ db }) {
     byIp({ name: 'forgot', capacity: 5, refillMs: 15 * 60 * 1000 }),
     byEmail({ name: 'forgot', capacity: 5, refillMs: 15 * 60 * 1000 }),
   ];
+  const limitReset = [byIp({ name: 'reset', capacity: 5, refillMs: 15 * 60 * 1000 })];
 
   router.post('/login', ...limitLogin, async (req, res, next) => {
     try {
@@ -121,7 +122,7 @@ export function createAuthRouter({ db }) {
       const sessionResult = db.transaction(() => {
         const tokenRow = authDb.findActiveByHash(db, hash, 'magic_link');
         if (!tokenRow) return null;
-        authDb.markUsed(db, tokenRow.id);
+        if (!authDb.markUsed(db, tokenRow.id)) return null;
         usersDb.setLastLoginAt(db, tokenRow.user_id);
         return sessions.createForUser(db, {
           userId: tokenRow.user_id,
@@ -166,7 +167,7 @@ export function createAuthRouter({ db }) {
     }
   });
 
-  router.post('/reset', async (req, res, next) => {
+  router.post('/reset', ...limitReset, async (req, res, next) => {
     try {
       const raw = req.body?.token;
       const password = req.body?.password;
@@ -183,12 +184,14 @@ export function createAuthRouter({ db }) {
 
       const passwordHash = await passwords.hash(password);
 
-      db.transaction(() => {
-        authDb.markUsed(db, tokenRow.id);
+      const claimed = db.transaction(() => {
+        if (!authDb.markUsed(db, tokenRow.id)) return false;
         usersDb.setPasswordHash(db, tokenRow.user_id, passwordHash);
         sessions.revokeAllForUser(db, tokenRow.user_id);
+        return true;
       })();
 
+      if (!claimed) return res.status(400).json({ error: 'invalid_token' });
       res.json({ ok: true });
     } catch (err) {
       next(err);
