@@ -271,11 +271,12 @@ E2e suite remains flaky under default parallel workers due to pre-existing SQLit
 1. Global `keydown` handler with a context-aware dispatch: bindings registered per active route.
 2. Bindings per spec (#24); `?` opens a shortcut help overlay rendered from a single source-of-truth registry.
 3. Polish: focus rings, accessible roles on custom interactive elements, loading skeletons, empty-state illustrations (CSS only), dark-mode CSS-variable toggle.
-4. Performance pass: ensure issue list with 1000 issues is interactive; index-tune any slow queries observed.
 
 **Verify:** every documented shortcut works; `?` shows accurate help; Lighthouse a11y score ≥ 95.
 
 ---
+DONE: Performance pass: ensure issue list with 1000 issues is interactive; index-tune any slow queries observed.
+----
 
 ## Stage 14 — Hardening, ops, and 1.0
 

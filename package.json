@@ -20,7 +20,9 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "migrate": "node scripts/migrate.js",
-    "db:reset": "node scripts/reset-db.js"
+    "db:reset": "node scripts/reset-db.js",
+    "seed:perf": "node scripts/seed-perf.js",
+    "bench:issues": "node scripts/bench-issues-list.js"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
