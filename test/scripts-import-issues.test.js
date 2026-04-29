@@ -8,6 +8,7 @@ import {
   parseExportDate,
   emailSlug,
   importIssues,
+  parseUserMap,
 } from '../scripts/import-issues.js';
 
 const HEADER =
@@ -193,5 +194,138 @@ describe('importIssues', () => {
       { line: 2, reason: 'missing subject' },
       expect.objectContaining({ line: 3, reason: expect.stringContaining('invalid created date') }),
     ]);
+  });
+});
+
+describe('parseUserMap', () => {
+  it('parses name=email and name=email:Display Name', () => {
+    const map = parseUserMap([
+      'jdoe=john@acme.com',
+      'JS=jane@acme.com:Jane Smith',
+    ]);
+    expect(map.get('jdoe')).toEqual({ email: 'john@acme.com', displayName: null });
+    expect(map.get('js')).toEqual({ email: 'jane@acme.com', displayName: 'Jane Smith' });
+  });
+
+  it('lowercases the email but preserves the display name verbatim', () => {
+    const map = parseUserMap(['Bob=Bob@Acme.COM:Bob the Builder']);
+    expect(map.get('bob')).toEqual({
+      email: 'bob@acme.com',
+      displayName: 'Bob the Builder',
+    });
+  });
+
+  it('keys lookups case-insensitively on the csv name', () => {
+    const map = parseUserMap(['James D. Terry=jt@acme.com']);
+    expect(map.get('james d. terry')).toBeDefined();
+  });
+
+  it('treats later mappings as the winner for duplicate names', () => {
+    const map = parseUserMap([
+      'dup=first@acme.com',
+      'DUP=second@acme.com:Second',
+    ]);
+    expect(map.get('dup')).toEqual({ email: 'second@acme.com', displayName: 'Second' });
+  });
+
+  it('throws on missing =', () => {
+    expect(() => parseUserMap(['no-equals-here'])).toThrow(/expected 'csvName=email/);
+  });
+
+  it('throws on empty name', () => {
+    expect(() => parseUserMap(['=lone@acme.com'])).toThrow(/empty csv name/);
+  });
+
+  it('throws on a malformed email', () => {
+    expect(() => parseUserMap(['name=not-an-email'])).toThrow(/bad email/);
+  });
+
+  it('returns an empty map for no args', () => {
+    expect(parseUserMap()).toBeInstanceOf(Map);
+    expect(parseUserMap().size).toBe(0);
+  });
+});
+
+describe('importIssues with --map mappings', () => {
+  it('creates a real (disabled) user for a mapped name new to the system', () => {
+    const { db, project } = bootstrap();
+    const userMap = parseUserMap(['jdoe=john@acme.com:John Doe']);
+    const csv =
+      `${HEADER}\n` +
+      `1,Subject,,,,,,2025-05-20 15:08:52 -0400,jdoe,,,desc\n`;
+
+    const summary = importIssues(db, project.id, csv, { userMap });
+    expect(summary.imported).toBe(1);
+
+    const issue = db.prepare('SELECT * FROM issues WHERE project_id = ?').get(project.id);
+    const opener = db.prepare('SELECT * FROM users WHERE id = ?').get(issue.created_by);
+    expect(opener.email).toBe('john@acme.com');
+    expect(opener.name).toBe('John Doe');
+    expect(opener.is_disabled).toBe(1);
+    expect(projectMembersDb.getRole(db, project.id, opener.id)).toBe('user');
+
+    // No placeholder email leaks in.
+    const placeholder = db
+      .prepare('SELECT id FROM users WHERE email = ?')
+      .get('jdoe@imported.local');
+    expect(placeholder).toBeUndefined();
+  });
+
+  it('reuses an existing user matched by mapping email instead of creating a duplicate', () => {
+    const { db, project } = bootstrap();
+    db.prepare('INSERT INTO users (email, name) VALUES (?, ?)').run('jane@acme.com', 'Jane S.');
+    const existing = db.prepare('SELECT * FROM users WHERE email = ?').get('jane@acme.com');
+
+    const userMap = parseUserMap(['JS=jane@acme.com:Jane Smith']);
+    const csv =
+      `${HEADER}\n` +
+      `1,Subject,,,,,,2025-05-20 15:08:52 -0400,JS,,,desc\n`;
+    importIssues(db, project.id, csv, { userMap });
+
+    const issue = db.prepare('SELECT * FROM issues WHERE project_id = ?').get(project.id);
+    expect(issue.created_by).toBe(existing.id);
+
+    // Display-name from mapping does not overwrite the existing user's name.
+    const after = db.prepare('SELECT * FROM users WHERE id = ?').get(existing.id);
+    expect(after.name).toBe('Jane S.');
+    expect(after.is_disabled).toBe(0);
+
+    // Membership added.
+    expect(projectMembersDb.getRole(db, project.id, existing.id)).toBe('user');
+  });
+
+  it('still creates a placeholder for an unmapped name', () => {
+    const { db, project } = bootstrap();
+    const userMap = parseUserMap(['jdoe=john@acme.com']);
+    const csv =
+      `${HEADER}\n` +
+      `1,A,,,,,,2025-05-20 15:08:52 -0400,jdoe,,,a\n` +
+      `2,B,,,,,,2025-05-20 15:08:52 -0400,Other Person,,,b\n`;
+
+    importIssues(db, project.id, csv, { userMap });
+
+    const otherPlaceholder = db
+      .prepare('SELECT * FROM users WHERE email = ?')
+      .get('other-person@imported.local');
+    expect(otherPlaceholder).toBeDefined();
+    expect(otherPlaceholder.is_disabled).toBe(1);
+  });
+
+  it('resolves Assignee through the same mapping', () => {
+    const { db, project } = bootstrap();
+    const userMap = parseUserMap([
+      'jdoe=john@acme.com:John Doe',
+      'JS=jane@acme.com:Jane Smith',
+    ]);
+    const csv =
+      `${HEADER}\n` +
+      `1,Subject,,,,,JS,2025-05-20 15:08:52 -0400,jdoe,,,desc\n`;
+
+    importIssues(db, project.id, csv, { userMap });
+    const issue = db.prepare('SELECT * FROM issues WHERE project_id = ?').get(project.id);
+    const opener = db.prepare('SELECT email FROM users WHERE id = ?').get(issue.created_by);
+    const assignee = db.prepare('SELECT email FROM users WHERE id = ?').get(issue.assigned_to);
+    expect(opener.email).toBe('john@acme.com');
+    expect(assignee.email).toBe('jane@acme.com');
   });
 });

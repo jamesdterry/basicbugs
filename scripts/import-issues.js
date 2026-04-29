@@ -8,18 +8,28 @@
 // Number and Milestone are dropped. Status / Priority / Category names are
 // matched per-project (case-insensitive) and auto-created if missing. Blank
 // metadata cells fall back to the project's default. Opener / Assignee /
-// Last Updated By names are matched to existing user.name; if no match a
-// disabled placeholder user is created with email <slug>@imported.local and
-// added to the project at the 'user' role. Created / Last Updated values
+// Last Updated By names are first checked against any --map mappings (see
+// below). Otherwise they are matched to existing user.name; if still no
+// match a disabled placeholder user is created with email <slug>@imported.local
+// and added to the project at the 'user' role. Created / Last Updated values
 // preserve the original timestamps on the issue and on the synthesized
 //'creation' history event.
 //
 // Usage:
 //   node scripts/import-issues.js --csv <path> --project <id-or-name>
 //   node scripts/import-issues.js --csv <path> --project "My Project" --dry-run
+//   node scripts/import-issues.js --csv <path> --project Acme \
+//     --map 'jdoe=john@acme.com' --map 'JS=jane@acme.com:Jane Smith'
 //
 // --dry-run wraps the run in a savepoint and rolls back at the end so you can
 // preview without writing.
+//
+// --map (repeatable) maps a CSV name (Opener/Assignee value) to a real email
+// address, optionally with a display name: 'csvName=email[:Display Name]'.
+// Names match case-insensitively. If the email already belongs to a user, that
+// user is reused. Otherwise a *real* (non-placeholder) user is created with
+// the given email and display name, marked disabled so they cannot sign in
+// until an admin enables them and sends a magic link from the Users page.
 
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -211,10 +221,62 @@ function findOrCreatePlaceholderUser(db, rawName, projectId, log) {
   return user;
 }
 
+// Parse repeated --map specs ('csvName=email[:Display Name]') into a Map
+// keyed by lowercased trimmed csv name. Throws a clear error on bad specs so
+// CLI typos fail fast rather than silently importing as placeholders.
+export function parseUserMap(rawArgs) {
+  const map = new Map();
+  for (const raw of rawArgs ?? []) {
+    if (typeof raw !== 'string') {
+      throw new Error(`invalid --map: expected string, got ${typeof raw}`);
+    }
+    const eqIdx = raw.indexOf('=');
+    if (eqIdx < 0) {
+      throw new Error(`invalid --map "${raw}": expected 'csvName=email[:Display Name]'`);
+    }
+    const name = raw.slice(0, eqIdx).trim();
+    if (!name) {
+      throw new Error(`invalid --map "${raw}": empty csv name`);
+    }
+    const rhs = raw.slice(eqIdx + 1);
+    const colonIdx = rhs.indexOf(':');
+    const email = (colonIdx === -1 ? rhs : rhs.slice(0, colonIdx)).trim().toLowerCase();
+    const displayName = colonIdx === -1 ? null : rhs.slice(colonIdx + 1).trim() || null;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new Error(`invalid --map "${raw}": bad email "${email}"`);
+    }
+    map.set(name.toLowerCase(), { email, displayName });
+  }
+  return map;
+}
+
+function findOrCreateMappedUser(db, rawName, projectId, log, userMap) {
+  const name = (rawName ?? '').trim();
+  if (!name) return null;
+  const mapping = userMap?.get(name.toLowerCase());
+  if (!mapping) return findOrCreatePlaceholderUser(db, name, projectId, log);
+
+  let user = usersDb.getByEmail(db, mapping.email);
+  if (!user) {
+    const created = usersDb.create(db, {
+      email: mapping.email,
+      name: mapping.displayName ?? name,
+    });
+    usersDb.setDisabled(db, created.id, true);
+    user = usersDb.getById(db, created.id);
+    log(`created mapped user "${name}" <${mapping.email}> (disabled, awaiting invite)`);
+  }
+  if (!projectMembersDb.getRole(db, projectId, user.id)) {
+    projectMembersDb.add(db, { projectId, userId: user.id, role: 'user' });
+  }
+  return user;
+}
+
 // ---------- Importer ----------
 
 export function importIssues(db, projectId, csvText, opts = {}) {
   const log = opts.log ?? (() => {});
+  const userMap = opts.userMap ?? new Map();
   const project = projectsDb.getById(db, projectId);
   if (!project) throw new Error(`project ${projectId} not found`);
 
@@ -329,10 +391,10 @@ export function importIssues(db, projectId, csvText, opts = {}) {
         if (!finalPriority) throw new Error('project has no default priority');
         if (!finalCategory) throw new Error('project has no default category');
 
-        const openerUser = findOrCreatePlaceholderUser(db, opener, projectId, log);
+        const openerUser = findOrCreateMappedUser(db, opener, projectId, log, userMap);
         const assigneeRaw = COL.assignee >= 0 ? (row[COL.assignee] ?? '').trim() : '';
         const assigneeUser = assigneeRaw
-          ? findOrCreatePlaceholderUser(db, assigneeRaw, projectId, log)
+          ? findOrCreateMappedUser(db, assigneeRaw, projectId, log, userMap)
           : null;
 
         const number = nextNumberStmt.get(projectId).n;
@@ -362,15 +424,17 @@ export function importIssues(db, projectId, csvText, opts = {}) {
 
 // ---------- CLI ----------
 
-function parseCliArgs(argv) {
-  const out = { dryRun: false };
+export function parseCliArgs(argv) {
+  const out = { dryRun: false, maps: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') out.dryRun = true;
     else if (a === '--csv') out.csv = argv[++i];
     else if (a === '--project') out.project = argv[++i];
+    else if (a === '--map') out.maps.push(argv[++i]);
     else if (a.startsWith('--csv=')) out.csv = a.slice('--csv='.length);
     else if (a.startsWith('--project=')) out.project = a.slice('--project='.length);
+    else if (a.startsWith('--map=')) out.maps.push(a.slice('--map='.length));
   }
   return out;
 }
@@ -414,12 +478,20 @@ if (isMain) {
   const csvText = fs.readFileSync(args.csv, 'utf8');
   const log = (m) => logger.info(m);
 
+  let userMap;
+  try {
+    userMap = parseUserMap(args.maps);
+  } catch (err) {
+    logger.error(err.message);
+    process.exit(1);
+  }
+
   if (args.dryRun) {
     const sp = `import_dry_${Date.now()}`;
     db.exec(`SAVEPOINT ${sp}`);
     let summary;
     try {
-      summary = importIssues(db, projectId, csvText, { log });
+      summary = importIssues(db, projectId, csvText, { log, userMap });
     } finally {
       db.exec(`ROLLBACK TO SAVEPOINT ${sp}`);
       db.exec(`RELEASE SAVEPOINT ${sp}`);
@@ -427,7 +499,7 @@ if (isMain) {
     logger.info(`[dry-run] would import ${summary.imported} issues; ${summary.skipped.length} skipped`);
     for (const s of summary.skipped) logger.warn(`[dry-run] line ${s.line}: ${s.reason}`);
   } else {
-    const summary = importIssues(db, projectId, csvText, { log });
+    const summary = importIssues(db, projectId, csvText, { log, userMap });
     logger.info(`imported ${summary.imported} issues; ${summary.skipped.length} skipped`);
     for (const s of summary.skipped) logger.warn(`line ${s.line}: ${s.reason}`);
   }

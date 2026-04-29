@@ -313,6 +313,26 @@ async function openInviteModal(reload) {
     roleSelect.disabled = !projectSelect.value;
   });
 
+  const sendInviteCheck = h('input', {
+    type: 'checkbox',
+    checked: true,
+    'aria-label': 'Send magic-link sign-in email now',
+  });
+  const sendInviteLabel = h(
+    'label',
+    {},
+    sendInviteCheck,
+    document.createTextNode(' Send magic-link sign-in email now'),
+  );
+  const noteSendCopy =
+    'A magic-link sign-in email will be sent. The user can set a password from their profile.';
+  const noteSilentCopy =
+    "The account will be created without an email. Use the row's “Magic link” button later to send the invite.";
+  const note = h('p', { class: 'muted' }, noteSendCopy);
+  sendInviteCheck.addEventListener('change', () => {
+    note.textContent = sendInviteCheck.checked ? noteSendCopy : noteSilentCopy;
+  });
+
   openModal({
     title: 'Invite user',
     body: h(
@@ -326,16 +346,13 @@ async function openInviteModal(reload) {
       projectSelect,
       h('label', {}, 'Role'),
       roleSelect,
-      h(
-        'p',
-        { class: 'muted' },
-        'A magic-link sign-in email will be sent. The user can set a password from their profile.',
-      ),
+      sendInviteLabel,
+      note,
     ),
     actions: [
       { label: 'Cancel' },
       {
-        label: 'Send invite',
+        label: 'Create user',
         kind: 'primary',
         onClick: async (close) => {
           const email = emailInput.value.trim().toLowerCase();
@@ -346,14 +363,16 @@ async function openInviteModal(reload) {
           }
           const projectId = projectSelect.value ? Number.parseInt(projectSelect.value, 10) : null;
           const role = projectId ? roleSelect.value : null;
+          const sendInvite = sendInviteCheck.checked;
           try {
             await postJson('/api/admin/users', {
               email,
               name,
+              sendInvite,
               ...(projectId ? { projectId, role } : {}),
             });
             close();
-            showToast('Invite sent', 'info');
+            showToast(sendInvite ? 'Invite sent' : 'User created', 'info');
             reload();
           } catch (err) {
             showToast(err?.message ?? 'Invite failed', 'error');
