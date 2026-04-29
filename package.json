@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Open-source bug tracker aimed at consultants. Vanilla JS/CSS/HTML on Node + Express + SQLite.",
+  "license": "MIT",
   "type": "module",
   "engines": {
     "node": ">=22 <23"
@@ -10,7 +11,7 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "start:e2e": "PORT=8081 DB_PATH=./data/e2e.sqlite NODE_ENV=test SUPER_ADMIN_EMAIL=admin@e2e.local SESSION_SECRET=e2e-session-secret BASE_URL=http://localhost:8081 SMTP_HOST= node server/index.js",
+    "start:e2e": "PORT=8081 DB_PATH=./data/e2e.sqlite NODE_ENV=test SUPER_ADMIN_EMAIL=admin@e2e.local SESSION_SECRET=e2e-session-secret BASE_URL=http://localhost:8081 SMTP_HOST= E2E_EMAIL_LOG=./data/e2e-emails.jsonl node server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "e2e": "node scripts/seed-e2e.js && playwright test",
@@ -38,7 +39,9 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "pino": "^9.5.0",
+    "pino-http": "^10.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -46,6 +49,7 @@
     "@playwright/test": "^1.49.1",
     "eslint": "^9.17.0",
     "globals": "^15.14.0",
+    "pino-pretty": "^11.3.0",
     "prettier": "^3.4.2",
     "supertest": "^7.0.0",
     "vitest": "^2.1.8"

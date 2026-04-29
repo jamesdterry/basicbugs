@@ -13,6 +13,8 @@ import { adminProjectsView } from './views/admin/projects.js';
 import { adminProjectMetadataView } from './views/admin/projectMetadata.js';
 import { adminSessionsView } from './views/admin/sessions.js';
 import { adminSystemView } from './views/admin/system.js';
+import { adminErrorsView } from './views/admin/errors.js';
+import { adminAuditView } from './views/admin/audit.js';
 import { notFound } from './views/notFound.js';
 
 const handlers = {
@@ -29,6 +31,8 @@ const handlers = {
   adminProjectMetadata: adminProjectMetadataView,
   adminSessions: adminSessionsView,
   adminSystem: adminSystemView,
+  adminErrors: adminErrorsView,
+  adminAudit: adminAuditView,
   me: meView,
   notFound,
 };

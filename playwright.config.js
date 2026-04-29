@@ -47,6 +47,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], storageState: ADMIN_STORAGE_STATE },
       dependencies: ['admin-setup'],
     },
+    {
+      name: 'smoke-1.0',
+      testMatch: /smoke-1\.0\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['admin-setup'],
+    },
   ],
   webServer: {
     command: 'npm run start:e2e',

@@ -18,6 +18,9 @@ const EXPECTED_TABLES = [
   'issue_watchers',
   'notification_prefs',
   'notifications',
+  '_health',
+  'error_log',
+  'admin_audit',
 ];
 
 function listSchemaTables(db) {

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
@@ -18,8 +19,32 @@ function getTransport() {
   return transport;
 }
 
+// Extract every URL the body refers to. Used by the E2E smoke spec to follow
+// magic links / invite links without configuring a real SMTP inbox.
+function extractLinks(text = '') {
+  const matches = text.match(/https?:\/\/[^\s)>"']+/g);
+  return matches ? matches : [];
+}
+
+function appendE2eEmailLog(entry) {
+  const path = process.env.E2E_EMAIL_LOG;
+  if (!path) return;
+  try {
+    fs.appendFileSync(path, JSON.stringify(entry) + '\n', 'utf8');
+  } catch (err) {
+    logger.warn(`[E2E_EMAIL_LOG] append failed: ${err.message}`);
+  }
+}
+
 export async function send({ to, subject, text, html }) {
   const t = getTransport();
+  appendE2eEmailLog({
+    timestamp: new Date().toISOString(),
+    to,
+    subject,
+    text,
+    links: extractLinks(text),
+  });
   if (!t) {
     logger.info('[dev-email]', JSON.stringify({ to, subject, text }));
     return { delivered: false, dev: true };

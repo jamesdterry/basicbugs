@@ -1,8 +1,19 @@
+function readCsrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)bb_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function csrfHeaders(method) {
+  if (method === 'GET' || method === 'HEAD') return {};
+  const token = readCsrfToken();
+  return token ? { 'X-CSRF-Token': token } : {};
+}
+
 async function request(method, url, body) {
   const init = {
     method,
     credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...csrfHeaders(method) },
   };
   if (body !== undefined) {
     init.headers['Content-Type'] = 'application/json';
@@ -38,7 +49,7 @@ export async function postForm(url, formData) {
   const res = await fetch(url, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...csrfHeaders('POST') },
     body: formData,
   });
   if (res.status === 401) {

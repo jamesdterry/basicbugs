@@ -7,6 +7,7 @@ import * as projectMembers from '../services/projectMembers.js';
 import * as metadata from '../services/metadata.js';
 import * as metadataDb from '../db/metadata.js';
 import * as mentions from '../services/mentions.js';
+import * as adminAudit from '../services/adminAudit.js';
 import { createIssuesRouter } from './issues.js';
 import { handleError } from './errors.js';
 
@@ -28,6 +29,12 @@ export function createProjectsRouter({ db }) {
         if (addSelf) {
           projectMembers.addMember(db, created.id, req.user.id, 'developer');
         }
+        adminAudit.log(db, req, {
+          action: 'project.create',
+          targetType: 'project',
+          targetId: created.id,
+          payload: { name: created.name, addSelfAsMember: addSelf },
+        });
         return created;
       })();
       res.status(201).json({ project });
@@ -39,7 +46,16 @@ export function createProjectsRouter({ db }) {
   router.patch('/admin/projects/:id', requireSuperAdmin, (req, res, next) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
-      const project = projects.renameProject(db, id, req.body?.name);
+      const project = db.transaction(() => {
+        const result = projects.renameProject(db, id, req.body?.name);
+        adminAudit.log(db, req, {
+          action: 'project.rename',
+          targetType: 'project',
+          targetId: id,
+          payload: { name: result.name },
+        });
+        return result;
+      })();
       res.json({ project });
     } catch (err) {
       handleError(res, next, err);
@@ -49,7 +65,15 @@ export function createProjectsRouter({ db }) {
   router.post('/admin/projects/:id/archive', requireSuperAdmin, (req, res, next) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
-      const project = projects.archiveProject(db, id);
+      const project = db.transaction(() => {
+        const result = projects.archiveProject(db, id);
+        adminAudit.log(db, req, {
+          action: 'project.archive',
+          targetType: 'project',
+          targetId: id,
+        });
+        return result;
+      })();
       res.json({ project });
     } catch (err) {
       handleError(res, next, err);
@@ -59,7 +83,15 @@ export function createProjectsRouter({ db }) {
   router.post('/admin/projects/:id/unarchive', requireSuperAdmin, (req, res, next) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
-      const project = projects.unarchiveProject(db, id);
+      const project = db.transaction(() => {
+        const result = projects.unarchiveProject(db, id);
+        adminAudit.log(db, req, {
+          action: 'project.unarchive',
+          targetType: 'project',
+          targetId: id,
+        });
+        return result;
+      })();
       res.json({ project });
     } catch (err) {
       handleError(res, next, err);
@@ -75,7 +107,16 @@ export function createProjectsRouter({ db }) {
       if (!Number.isInteger(userId) || userId <= 0) {
         return res.status(400).json({ error: 'invalid_user_id' });
       }
-      const member = projectMembers.addMember(db, projectId, userId, req.body?.role);
+      const member = db.transaction(() => {
+        const result = projectMembers.addMember(db, projectId, userId, req.body?.role);
+        adminAudit.log(db, req, {
+          action: 'member.add',
+          targetType: 'project',
+          targetId: projectId,
+          payload: { userId, role: req.body?.role ?? null },
+        });
+        return result;
+      })();
       res.status(201).json({ member });
     } catch (err) {
       handleError(res, next, err);
@@ -86,7 +127,15 @@ export function createProjectsRouter({ db }) {
     try {
       const projectId = Number.parseInt(req.params.id, 10);
       const userId = Number.parseInt(req.params.userId, 10);
-      projectMembers.changeRole(db, projectId, userId, req.body?.role);
+      db.transaction(() => {
+        projectMembers.changeRole(db, projectId, userId, req.body?.role);
+        adminAudit.log(db, req, {
+          action: 'member.change_role',
+          targetType: 'project',
+          targetId: projectId,
+          payload: { userId, role: req.body?.role ?? null },
+        });
+      })();
       res.json({ ok: true });
     } catch (err) {
       handleError(res, next, err);
@@ -97,7 +146,15 @@ export function createProjectsRouter({ db }) {
     try {
       const projectId = Number.parseInt(req.params.id, 10);
       const userId = Number.parseInt(req.params.userId, 10);
-      projectMembers.removeMember(db, projectId, userId);
+      db.transaction(() => {
+        projectMembers.removeMember(db, projectId, userId);
+        adminAudit.log(db, req, {
+          action: 'member.remove',
+          targetType: 'project',
+          targetId: projectId,
+          payload: { userId },
+        });
+      })();
       res.json({ ok: true });
     } catch (err) {
       handleError(res, next, err);
@@ -230,8 +287,16 @@ export function createProjectsRouter({ db }) {
         if (!Number.isInteger(projectId) || projectId <= 0) {
           return res.status(404).json({ error: 'not_found' });
         }
-        metadata.resetToDefaults(db, projectId, kind);
-        const items = metadata.listKind(db, kind, projectId, { includeArchived: false });
+        const items = db.transaction(() => {
+          metadata.resetToDefaults(db, projectId, kind);
+          adminAudit.log(db, req, {
+            action: 'metadata.reset',
+            targetType: 'project',
+            targetId: projectId,
+            payload: { kind },
+          });
+          return metadata.listKind(db, kind, projectId, { includeArchived: false });
+        })();
         res.json({ items });
       } catch (err) {
         handleError(res, next, err);
@@ -254,9 +319,18 @@ export function createProjectsRouter({ db }) {
         if (!Number.isInteger(srcId) || srcId <= 0) {
           return res.status(400).json({ error: 'invalid_source' });
         }
-        const inserted = metadata.copyFromProject(db, srcId, projectId, kind);
-        const items = metadata.listKind(db, kind, projectId, { includeArchived: false });
-        res.json({ inserted, items });
+        const result = db.transaction(() => {
+          const inserted = metadata.copyFromProject(db, srcId, projectId, kind);
+          adminAudit.log(db, req, {
+            action: 'metadata.copy_from',
+            targetType: 'project',
+            targetId: projectId,
+            payload: { kind, sourceProjectId: srcId, inserted },
+          });
+          const items = metadata.listKind(db, kind, projectId, { includeArchived: false });
+          return { inserted, items };
+        })();
+        res.json(result);
       } catch (err) {
         handleError(res, next, err);
       }

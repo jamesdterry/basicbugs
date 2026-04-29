@@ -6,7 +6,9 @@ const NAV_ITEMS = [
   { key: 'adminUsers', href: '#/admin/users', label: 'Users' },
   { key: 'adminProjects', href: '#/admin/projects', label: 'Projects' },
   { key: 'adminSessions', href: '#/admin/sessions', label: 'Sessions' },
+  { key: 'adminAudit', href: '#/admin/audit', label: 'Audit' },
   { key: 'adminSystem', href: '#/admin/system', label: 'System' },
+  { key: 'adminErrors', href: '#/admin/errors', label: 'Errors' },
 ];
 
 export function adminShell({ active, eyebrow, title, body }) {

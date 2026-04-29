@@ -8,6 +8,9 @@ import * as auth from '../services/auth.js';
 import * as projectMembers from '../services/projectMembers.js';
 import * as projectMembersDb from '../db/projectMembers.js';
 import * as usersDb from '../db/users.js';
+import * as errorLogDb from '../db/errorLog.js';
+import * as adminAuditDb from '../db/adminAudit.js';
+import * as adminAudit from '../services/adminAudit.js';
 import { handleError } from './errors.js';
 
 function parseId(raw) {
@@ -79,6 +82,18 @@ export function createAdminRouter({ db }) {
         if (wantsMembership) {
           projectMembers.addMember(db, projectIdNum, user.id, role);
         }
+        adminAudit.log(db, req, {
+          action: 'user.create',
+          targetType: 'user',
+          targetId: user.id,
+          payload: {
+            email: user.email,
+            name: user.name ?? null,
+            projectId: wantsMembership ? projectIdNum : null,
+            role: wantsMembership ? role ?? null : null,
+            sendInvite: sendInvite !== false,
+          },
+        });
         return user;
       })();
 
@@ -113,10 +128,22 @@ export function createAdminRouter({ db }) {
           return res.status(403).json({ error: 'forbidden' });
         }
       }
-      const updated = users.updateProfile(db, id, {
-        name: req.body?.name,
-        email: req.body?.email,
-      });
+      const updated = db.transaction(() => {
+        const result = users.updateProfile(db, id, {
+          name: req.body?.name,
+          email: req.body?.email,
+        });
+        adminAudit.log(db, req, {
+          action: 'user.edit',
+          targetType: 'user',
+          targetId: id,
+          payload: {
+            name: req.body?.name ?? undefined,
+            email: req.body?.email ?? undefined,
+          },
+        });
+        return result;
+      })();
       res.json({ user: publicUser(updated) });
     } catch (err) {
       handleError(res, next, err);
@@ -127,7 +154,15 @@ export function createAdminRouter({ db }) {
     try {
       const id = parseId(req.params.id);
       if (!id) return res.status(404).json({ error: 'not_found' });
-      const updated = users.setDisabled(db, id, true);
+      const updated = db.transaction(() => {
+        const result = users.setDisabled(db, id, true);
+        adminAudit.log(db, req, {
+          action: 'user.disable',
+          targetType: 'user',
+          targetId: id,
+        });
+        return result;
+      })();
       res.json({ user: publicUser(updated) });
     } catch (err) {
       handleError(res, next, err);
@@ -138,7 +173,15 @@ export function createAdminRouter({ db }) {
     try {
       const id = parseId(req.params.id);
       if (!id) return res.status(404).json({ error: 'not_found' });
-      const updated = users.setDisabled(db, id, false);
+      const updated = db.transaction(() => {
+        const result = users.setDisabled(db, id, false);
+        adminAudit.log(db, req, {
+          action: 'user.enable',
+          targetType: 'user',
+          targetId: id,
+        });
+        return result;
+      })();
       res.json({ user: publicUser(updated) });
     } catch (err) {
       handleError(res, next, err);
@@ -152,6 +195,12 @@ export function createAdminRouter({ db }) {
       const row = usersDb.getById(db, id);
       if (!row) return res.status(404).json({ error: 'not_found' });
       if (row.is_disabled) return res.status(409).json({ error: 'user_disabled' });
+      adminAudit.log(db, req, {
+        action: 'user.send_magic_link',
+        targetType: 'user',
+        targetId: row.id,
+        payload: { email: row.email },
+      });
       await auth.sendMagicLink(db, { id: row.id, email: row.email });
       res.json({ ok: true });
     } catch (err) {
@@ -166,6 +215,12 @@ export function createAdminRouter({ db }) {
       const row = usersDb.getById(db, id);
       if (!row) return res.status(404).json({ error: 'not_found' });
       if (row.is_disabled) return res.status(409).json({ error: 'user_disabled' });
+      adminAudit.log(db, req, {
+        action: 'user.send_reset',
+        targetType: 'user',
+        targetId: row.id,
+        payload: { email: row.email },
+      });
       await auth.sendPasswordReset(db, { id: row.id, email: row.email });
       res.json({ ok: true });
     } catch (err) {
@@ -179,7 +234,15 @@ export function createAdminRouter({ db }) {
       if (!id) return res.status(404).json({ error: 'not_found' });
       const row = usersDb.getById(db, id);
       if (!row) return res.status(404).json({ error: 'not_found' });
-      sessions.revokeAllForUser(db, id);
+      db.transaction(() => {
+        sessions.revokeAllForUser(db, id);
+        adminAudit.log(db, req, {
+          action: 'user.sign_out_everywhere',
+          targetType: 'user',
+          targetId: row.id,
+          payload: { email: row.email },
+        });
+      })();
       res.json({ ok: true });
     } catch (err) {
       handleError(res, next, err);
@@ -212,8 +275,47 @@ export function createAdminRouter({ db }) {
       if (!sessionId) return res.status(404).json({ error: 'not_found' });
       const row = sessions.getById(db, sessionId);
       if (!row) return res.status(404).json({ error: 'not_found' });
-      sessions.revoke(db, sessionId);
+      db.transaction(() => {
+        sessions.revoke(db, sessionId);
+        adminAudit.log(db, req, {
+          action: 'session.delete',
+          targetType: 'session',
+          targetId: null,
+          payload: { sessionId, userId: row.user_id ?? null },
+        });
+      })();
       res.json({ ok: true });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  // ---------- Audit log ----------
+
+  router.get('/audit', ...gate, (req, res, next) => {
+    try {
+      const limit = Math.min(Math.max(parseId(req.query.limit) ?? 50, 1), 200);
+      const before = parseId(req.query.before) ?? undefined;
+      const action = typeof req.query.action === 'string' ? req.query.action : undefined;
+      const targetType =
+        typeof req.query.targetType === 'string' ? req.query.targetType : undefined;
+      const items = adminAuditDb.list(db, { limit, before, action, targetType });
+      const total = adminAuditDb.count(db);
+      res.json({ entries: items, total });
+    } catch (err) {
+      handleError(res, next, err);
+    }
+  });
+
+  // ---------- Error log ----------
+
+  router.get('/errors', ...gate, (req, res, next) => {
+    try {
+      const limit = Math.min(Math.max(parseId(req.query.limit) ?? 50, 1), 200);
+      const before = parseId(req.query.before) ?? undefined;
+      const items = errorLogDb.list(db, { limit, before });
+      const total = errorLogDb.count(db);
+      res.json({ errors: items, total });
     } catch (err) {
       handleError(res, next, err);
     }

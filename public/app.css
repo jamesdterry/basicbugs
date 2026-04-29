@@ -1407,6 +1407,24 @@ main.auth h1 {
   min-width: 12rem;
 }
 
+.admin-table-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+}
+
+.admin-error-stack {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78em;
+  white-space: pre-wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  max-height: 24rem;
+  overflow: auto;
+}
+
 /* ---------- Stage 8: profile / me ---------- */
 
 .me-section {

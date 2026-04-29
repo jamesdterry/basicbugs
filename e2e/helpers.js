@@ -32,6 +32,17 @@ export async function getDefaultProjectId(page) {
 }
 
 /**
+ * Reads the bb_csrf cookie from the page's context. The CSRF middleware
+ * (Stage 14) requires X-CSRF-Token on state-changing /api/* requests; this
+ * helper plumbs the value to page.request.* calls.
+ */
+export async function csrfHeader(page) {
+  const cookies = await page.context().cookies();
+  const csrf = cookies.find((c) => c.name === 'bb_csrf')?.value;
+  return csrf ? { 'X-CSRF-Token': csrf } : {};
+}
+
+/**
  * Creates an issue via the JSON API using the page's session cookie. Avoids
  * UI flakiness around the new-issue modal and lets each test work on its own
  * row regardless of what other parallel workers are doing.
@@ -41,6 +52,7 @@ export async function createIssueViaApi(page, { projectId, name, description } =
   const issueName = name ?? uniqueName('issue');
   const response = await page.request.post(`/api/projects/${id}/issues`, {
     data: { name: issueName, description: description ?? null },
+    headers: await csrfHeader(page),
   });
   if (!response.ok()) {
     throw new Error(`createIssueViaApi failed: ${response.status()} ${await response.text()}`);

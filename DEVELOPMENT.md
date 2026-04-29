@@ -282,14 +282,12 @@ DONE: Performance pass: ensure issue list with 1000 issues is interactive; index
 
 **Goal:** production-ready.
 
-1. **Backups** — `scripts/backup.js` runs `VACUUM INTO` to a timestamped file, optionally uploads to S3-compatible storage if configured. Cron via fly machine schedule.
-2. **Restore documented** — `scripts/restore.js` and a tested runbook.
-3. **Observability** — request logging via pino, error reporter (Sentry-compatible env-var-driven), `/healthz` enriched with DB write check.
-4. **CSRF** — double-submit-cookie pattern on all state-changing routes; API token requests are exempt.
-5. **Audit log of admin actions** — table `admin_audit (id, super_admin_user_id, action, target_type, target_id, payload_json, created_at)` written by the admin routes.
-6. **Docs** — `README.md` (run locally, deploy to fly, env vars), `OPERATIONS.md` (backup/restore, rotating SUPER_ADMIN_EMAIL, recovering a locked-out admin via env-var magic-link), `CONTRIBUTING.md`.
-7. **License** — choose and add (MIT recommended).
-8. **End-to-end smoke test** — Playwright script that runs against a fresh deploy: super admin login → create user → create project → user receives invite email (captured via SMTP test inbox) → user logs in → files an issue → super admin sees activity.
+1. **Observability** — request logging via pino, error reporter (Sentry-compatible env-var-driven), `/healthz` enriched with DB write check.
+2. **CSRF** — double-submit-cookie pattern on all state-changing routes; API token requests are exempt.
+3. **Audit log of admin actions** — table `admin_audit (id, super_admin_user_id, action, target_type, target_id, payload_json, created_at)` written by the admin routes.
+4. **Docs** — `README.md` (run locally, deploy to fly, env vars), `OPERATIONS.md` (backup/restore, rotating SUPER_ADMIN_EMAIL, recovering a locked-out admin via env-var magic-link), `CONTRIBUTING.md`.
+5. **License** — choose and add (MIT recommended).
+6. **End-to-end smoke test** — Playwright script that runs against a fresh deploy: super admin login → create user → create project → user receives invite email (captured via SMTP test inbox) → user logs in → files an issue → super admin sees activity.
 
 **Verify:** restore from backup into a fresh fly app; smoke test passes; security review checklist (OWASP top 10) walked through.
 

@@ -46,6 +46,16 @@ const ROUTES = [
     match: (parts) =>
       parts.length === 2 && parts[0] === 'admin' && parts[1] === 'system' && { params: {} },
   },
+  {
+    name: 'adminErrors',
+    match: (parts) =>
+      parts.length === 2 && parts[0] === 'admin' && parts[1] === 'errors' && { params: {} },
+  },
+  {
+    name: 'adminAudit',
+    match: (parts) =>
+      parts.length === 2 && parts[0] === 'admin' && parts[1] === 'audit' && { params: {} },
+  },
   { name: 'admin', match: (parts) => parts[0] === 'admin' && { params: {} } },
   { name: 'me', match: (parts) => parts.length === 1 && parts[0] === 'me' && { params: {} } },
 ];

@@ -10,6 +10,7 @@ import { createIssue } from '../server/services/issues.js';
 import { logger } from '../server/logger.js';
 
 const DB_PATH = './data/e2e.sqlite';
+const EMAIL_LOG = './data/e2e-emails.jsonl';
 const DEV_EMAIL = 'developer@e2e.local';
 const DEV_PASSWORD = 'developer-pass-1';
 const SUPER_ADMIN_EMAIL = 'admin@e2e.local';
@@ -21,6 +22,7 @@ for (const suffix of ['', '-wal', '-shm']) {
   const file = DB_PATH + suffix;
   if (fs.existsSync(file)) fs.rmSync(file);
 }
+if (fs.existsSync(EMAIL_LOG)) fs.rmSync(EMAIL_LOG);
 
 const db = openConnection(DB_PATH);
 runMigrations(db);

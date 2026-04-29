@@ -2,6 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import pinoHttp from 'pino-http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from './config.js';
@@ -12,7 +13,9 @@ import { createAdminRouter } from './routes/admin.js';
 import { createMeRouter } from './routes/me.js';
 import { createAttachmentsRouter } from './routes/attachments.js';
 import { loadSessionFromCookie } from './middleware/requireUser.js';
+import { csrfMiddleware } from './middleware/csrf.js';
 import { logger } from './logger.js';
+import * as errorLog from './db/errorLog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
@@ -24,13 +27,40 @@ export function createApp({ db } = {}) {
 
   app.disable('x-powered-by');
   app.set('trust proxy', config.isProduction ? 1 : false);
+
+  if (config.nodeEnv !== 'test') {
+    app.use(
+      pinoHttp({
+        logger: logger.raw,
+        customLogLevel: (_req, res, err) => {
+          if (err || res.statusCode >= 500) return 'error';
+          if (res.statusCode >= 400) return 'warn';
+          return 'info';
+        },
+        serializers: {
+          req: (req) => ({ method: req.method, url: req.url }),
+          res: (res) => ({ statusCode: res.statusCode }),
+        },
+      }),
+    );
+  }
+
   app.use(helmet());
   app.use(compression());
   app.use(cookieParser(config.sessionSecret));
   app.use(express.json({ limit: '1mb' }));
+  app.use(csrfMiddleware);
 
   app.get('/healthz', (_req, res) => {
-    res.json({ status: 'ok' });
+    try {
+      dbHandle
+        .prepare("UPDATE _health SET last_check = datetime('now') WHERE id = 1")
+        .run();
+      res.json({ status: 'ok' });
+    } catch (err) {
+      logger.error('healthz db write failed', err);
+      res.status(503).json({ status: 'error', error: 'db_unavailable' });
+    }
   });
 
   app.use('/auth', createAuthRouter({ db: dbHandle }));
@@ -52,6 +82,18 @@ export function createApp({ db } = {}) {
 
   app.use((err, req, res, _next) => {
     logger.error(err);
+    try {
+      errorLog.record(dbHandle, {
+        method: req.method,
+        route: req.originalUrl,
+        status: 500,
+        userId: req.user?.id ?? null,
+        message: err?.message ?? String(err),
+        stack: err?.stack ?? null,
+      });
+    } catch (writeErr) {
+      logger.error('error_log write failed', writeErr);
+    }
     if (res.headersSent) return;
     res.status(500).json({ error: 'internal' });
   });
