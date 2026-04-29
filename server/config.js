@@ -38,6 +38,7 @@ export const config = Object.freeze({
   smtp: Object.freeze({
     host: env.SMTP_HOST ?? '',
     port: Number(env.SMTP_PORT ?? 587),
+    secure: env.SMTP_SECURE === 'true',
     user: env.SMTP_USER ?? '',
     pass: env.SMTP_PASS ?? '',
     from: env.SMTP_FROM ?? '',
