@@ -6,6 +6,7 @@ import { config } from '../config.js';
 import * as attachmentsDb from '../db/attachments.js';
 import * as issuesDb from '../db/issues.js';
 import * as projectMembersDb from '../db/projectMembers.js';
+import * as backup from './backup.js';
 
 export class AttachmentError extends Error {
   constructor(code, message = code) {
@@ -191,8 +192,9 @@ export async function finalizeUpload(
   await fsp.mkdir(path.dirname(finalAbs), { recursive: true });
   await fsp.rename(partialPath, finalAbs);
 
+  let row;
   try {
-    const row = db.transaction(() =>
+    row = db.transaction(() =>
       attachmentsDb.create(db, {
         issueId: issue.id,
         uploadedBy: userId,
@@ -202,11 +204,13 @@ export async function finalizeUpload(
         storagePath: relPath,
       }),
     )();
-    return hydrateAttachment(row);
   } catch (err) {
     await fsp.unlink(finalAbs).catch(() => {});
     throw err;
   }
+
+  await mirrorAttachmentToS3(relPath, finalAbs, contentType);
+  return hydrateAttachment(row);
 }
 
 /**
@@ -256,8 +260,9 @@ export async function storeUpload(
   await fsp.mkdir(path.dirname(finalAbs), { recursive: true });
   await fsp.writeFile(finalAbs, file.buffer);
 
+  let row;
   try {
-    const row = db.transaction(() =>
+    row = db.transaction(() =>
       attachmentsDb.create(db, {
         issueId: issue.id,
         uploadedBy: userId,
@@ -267,10 +272,27 @@ export async function storeUpload(
         storagePath: relPath,
       }),
     )();
-    return hydrateAttachment(row);
   } catch (err) {
     await fsp.unlink(finalAbs).catch(() => {});
     throw err;
+  }
+
+  await mirrorAttachmentToS3(relPath, finalAbs, contentType);
+  return hydrateAttachment(row);
+}
+
+// Best-effort write-through to the S3 backup. The DB row + local file are
+// already durable when this runs; an S3 failure must never fail the upload.
+// scripts/sync-attachments.js reconciles whatever this misses.
+async function mirrorAttachmentToS3(relPath, absPath, contentType) {
+  if (!backup.isConfigured()) return;
+  try {
+    await backup.putAttachment(relPath, absPath, contentType);
+  } catch (err) {
+    console.warn(
+      `[attachments] S3 write-through failed for ${relPath}: ${err.message}. ` +
+        `Local file saved; run scripts/sync-attachments.js to reconcile.`,
+    );
   }
 }
 

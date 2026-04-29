@@ -22,9 +22,14 @@
     "migrate": "node scripts/migrate.js",
     "db:reset": "node scripts/reset-db.js",
     "seed:perf": "node scripts/seed-perf.js",
-    "bench:issues": "node scripts/bench-issues-list.js"
+    "bench:issues": "node scripts/bench-issues-list.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js",
+    "backup:sync-attachments": "node scripts/sync-attachments.js",
+    "backup:restore-attachments": "node scripts/restore-attachments.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1038.0",
     "bcrypt": "^5.1.1",
     "better-sqlite3": "^11.7.0",
     "busboy": "^1.6.0",

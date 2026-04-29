@@ -1,0 +1,30 @@
+# Litestream replication config for basicbugs.
+#
+# Replicates /data/basicbugs.sqlite continuously to a Tigris (S3-compatible)
+# bucket on Fly.io. All credentials and bucket name come from env vars
+# that `fly storage create` sets on the app automatically — no secrets are
+# baked into this file.
+#
+# Scope:
+#   - basicbugs.sqlite only (the app's authoritative state).
+#   - /data/attachments/ is NOT covered here — that's a separate prefix
+#     written by the app's S3 write-through. See BACKUPS.md.
+#
+# Retention: 7 days of point-in-time recovery. Edit `retention` below if
+# you want longer (e.g. "720h" for 30 days) — requires a redeploy to take
+# effect.
+
+dbs:
+  - path: /data/basicbugs.sqlite
+    replicas:
+      - type: s3
+        bucket: ${BUCKET_NAME}
+        path: db
+        endpoint: ${AWS_ENDPOINT_URL_S3}
+        region: ${AWS_REGION}
+        access-key-id: ${AWS_ACCESS_KEY_ID}
+        secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+        retention: 168h
+        sync-interval: 1s
+        snapshot-interval: 24h
+        force-path-style: true

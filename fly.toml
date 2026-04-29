@@ -8,8 +8,10 @@ primary_region = 'iad'
 
 [build]
 
-[deploy]
-  release_command = 'node scripts/migrate.js'
+# Migrations run on the live app machine via docker-entrypoint.sh, not
+# here. Fly's release_command machine does not reliably mount the
+# persistent volume, so a release_command migrate would create the DB
+# on ephemeral fs and lose it on machine destroy.
 
 [env]
   ATTACHMENTS_DIR = '/data/attachments'
