@@ -80,6 +80,18 @@ export function issueDetail(params) {
     if (ctx.error) return renderError();
     if (!ctx.issue) return renderLoading();
 
+    const saveBar = SaveBar({
+      patch: ctx.pendingPatch,
+      note: ctx.saveNote,
+      onNoteInput: (text) => {
+        ctx.saveNote = text;
+      },
+      onSave: saveChanges,
+      onDiscard: discardChanges,
+      busy: ctx.saving,
+      projectId: ctx.projectId,
+    });
+
     root.replaceChildren(
       header(),
       h(
@@ -159,17 +171,7 @@ export function issueDetail(params) {
           dangerZone(),
         ),
       ),
-      SaveBar({
-        patch: ctx.pendingPatch,
-        note: ctx.saveNote,
-        onNoteInput: (text) => {
-          ctx.saveNote = text;
-        },
-        onSave: saveChanges,
-        onDiscard: discardChanges,
-        busy: ctx.saving,
-        projectId: ctx.projectId,
-      }),
+      ...(saveBar ? [saveBar] : []),
     );
   }
 
