@@ -99,6 +99,14 @@ export async function putAttachment(relPath, source, contentType) {
   await withTimeout(getClient().send(cmd), `S3 putAttachment(${relPath})`);
 }
 
+export async function deleteAttachment(relPath) {
+  const cmd = new DeleteObjectCommand({
+    Bucket: process.env.BUCKET_NAME,
+    Key: attachmentKey(relPath),
+  });
+  await withTimeout(getClient().send(cmd), `S3 deleteAttachment(${relPath})`);
+}
+
 export async function getAttachment(relPath) {
   const cmd = new GetObjectCommand({
     Bucket: process.env.BUCKET_NAME,

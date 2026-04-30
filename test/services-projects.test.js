@@ -4,6 +4,8 @@ import * as usersDb from '../server/db/users.js';
 import * as projectMembersDb from '../server/db/projectMembers.js';
 import * as projects from '../server/services/projects.js';
 import * as projectMembers from '../server/services/projectMembers.js';
+import * as issues from '../server/services/issues.js';
+import * as attachmentsDb from '../server/db/attachments.js';
 
 describe('services/projects.createProject', () => {
   it('creates the project and seeds 14 metadata rows atomically', () => {
@@ -109,6 +111,90 @@ describe('services/projects.getProjectDetail', () => {
   it('returns null for unknown id', () => {
     const db = createTestDb();
     expect(projects.getProjectDetail(db, 99999)).toBeNull();
+  });
+});
+
+describe('services/projects.hardDeleteProject', () => {
+  function seedProjectWithIssue(db, name) {
+    const owner = usersDb.create(db, { email: `${name}-owner@x`, name: `${name} Owner` });
+    const project = projects.createProject(db, { name });
+    projectMembers.addMember(db, project.id, owner.id, 'developer');
+    const issue = issues.createIssue(db, project.id, owner.id, 'developer', {
+      name: `${name} issue`,
+      description: 'body',
+    });
+    const attachment = attachmentsDb.create(db, {
+      issueId: issue.id,
+      uploadedBy: owner.id,
+      filename: 'note.txt',
+      contentType: 'text/plain',
+      sizeBytes: 4,
+      storagePath: `${project.id}/${issue.id}/abc-note.txt`,
+    });
+    return { owner, project, issue, attachment };
+  }
+
+  it('deletes the project, cascades all child rows, and returns attachment relPaths', () => {
+    const db = createTestDb();
+    const { project, issue, attachment } = seedProjectWithIssue(db, 'Doomed');
+
+    const result = projects.hardDeleteProject(db, project.id);
+
+    expect(result.project.id).toBe(project.id);
+    expect(result.project.name).toBe('Doomed');
+    expect(result.relPaths).toEqual([attachment.storage_path]);
+
+    expect(db.prepare('SELECT 1 FROM projects WHERE id = ?').get(project.id)).toBeUndefined();
+    expect(db.prepare('SELECT 1 FROM issues WHERE id = ?').get(issue.id)).toBeUndefined();
+    expect(db.prepare('SELECT 1 FROM attachments WHERE id = ?').get(attachment.id)).toBeUndefined();
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM issue_history WHERE issue_id = ?').get(issue.id).n,
+    ).toBe(0);
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM project_members WHERE project_id = ?').get(project.id).n,
+    ).toBe(0);
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM issue_statuses WHERE project_id = ?').get(project.id).n,
+    ).toBe(0);
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM issue_categories WHERE project_id = ?').get(project.id).n,
+    ).toBe(0);
+    expect(
+      db.prepare('SELECT COUNT(*) AS n FROM issue_priorities WHERE project_id = ?').get(project.id).n,
+    ).toBe(0);
+  });
+
+  it('does not touch sibling projects or their data', () => {
+    const db = createTestDb();
+    const doomed = seedProjectWithIssue(db, 'Doomed');
+    const keeper = seedProjectWithIssue(db, 'Keeper');
+
+    projects.hardDeleteProject(db, doomed.project.id);
+
+    expect(db.prepare('SELECT id FROM projects WHERE id = ?').get(keeper.project.id)?.id).toBe(
+      keeper.project.id,
+    );
+    expect(db.prepare('SELECT id FROM issues WHERE id = ?').get(keeper.issue.id)?.id).toBe(
+      keeper.issue.id,
+    );
+    expect(
+      db.prepare('SELECT id FROM attachments WHERE id = ?').get(keeper.attachment.id)?.id,
+    ).toBe(keeper.attachment.id);
+  });
+
+  it('throws not_found when the id does not exist and writes nothing', () => {
+    const db = createTestDb();
+    const before = db.prepare('SELECT COUNT(*) AS n FROM projects').get().n;
+    expect(() => projects.hardDeleteProject(db, 99999)).toThrow(/not_found/);
+    expect(db.prepare('SELECT COUNT(*) AS n FROM projects').get().n).toBe(before);
+  });
+
+  it('returns an empty relPaths list when the project has no attachments', () => {
+    const db = createTestDb();
+    const project = projects.createProject(db, { name: 'Bare' });
+    const result = projects.hardDeleteProject(db, project.id);
+    expect(result.relPaths).toEqual([]);
+    expect(db.prepare('SELECT 1 FROM projects WHERE id = ?').get(project.id)).toBeUndefined();
   });
 });
 

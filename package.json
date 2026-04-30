@@ -22,6 +22,7 @@
     "format": "prettier --write .",
     "migrate": "node scripts/migrate.js",
     "db:reset": "node scripts/reset-db.js",
+    "delete-project": "node scripts/delete-project.js",
     "seed:perf": "node scripts/seed-perf.js",
     "bench:issues": "node scripts/bench-issues-list.js",
     "backup": "node scripts/backup.js",
