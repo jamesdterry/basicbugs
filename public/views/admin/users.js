@@ -331,6 +331,8 @@ async function openInviteModal(reload) {
   const note = h('p', { class: 'muted' }, noteSendCopy);
   sendInviteCheck.addEventListener('change', () => {
     note.textContent = sendInviteCheck.checked ? noteSendCopy : noteSilentCopy;
+    const btn = document.querySelector('.modal-btn-primary');
+    if (btn) btn.textContent = sendInviteCheck.checked ? 'Send invite' : 'Create user';
   });
 
   openModal({
@@ -352,7 +354,7 @@ async function openInviteModal(reload) {
     actions: [
       { label: 'Cancel' },
       {
-        label: 'Create user',
+        label: 'Send invite',
         kind: 'primary',
         onClick: async (close) => {
           const email = emailInput.value.trim().toLowerCase();
